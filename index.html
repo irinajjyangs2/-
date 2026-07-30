@@ -16,20 +16,25 @@
   body {
     font-family: 'Pretendard', -apple-system, sans-serif;
     background-color: var(--bg);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: var(--text);
     margin: 0;
     padding: 20px;
     display: flex;
     justify-content: center;
-    transition: background-color 0.3s ease;
+    transition: background 0.3s ease;
   }
   .container {
     max-width: 600px;
     width: 100%;
-    background: white;
+    background: rgba(255, 255, 255, 0.92);
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(5px);
+    position: relative;
+    z-index: 10;
   }
   
   header { text-align: center; margin-bottom: 25px; }
@@ -77,6 +82,26 @@
   }
   button.action-btn:hover { opacity: 0.8; }
   button.import-btn { background: #555; }
+  button.delete-bg-btn { background: #ff4d4d; margin-top: 5px; }
+  
+  .btn-select-bg { background: #6c757d; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
+  .btn-select-bg.active { background: #28a745; }
+  .btn-delete-bg-slot { background: #ff4d4d; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
+
+  .bg-slots-container {
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 5px;
+    margin-bottom: 10px;
+  }
+  .bg-slot-box {
+    background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee;
+  }
+  .bg-slot-box h6 { margin: 0 0 6px 0; color: #444; font-size: 0.9em; }
+
+  #joystickNotice {
+    display: none; background: #e2f0d9; border: 1px solid #c8e6c9; padding: 10px; border-radius: 8px; font-size: 0.85em; color: #2e7d32; margin-bottom: 10px; text-align: center; font-weight: bold;
+  }
 
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
   input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
@@ -152,9 +177,27 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
+    <!-- 배경 이미지 관리 섹션 복구 완료 -->
+    <div class="admin-section">
+      <div class="lyrics-header">
+        <h5>🖼️ 배경 이미지 추가 및 위치 조절</h5>
+        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', 'center center')">➕ 사진 칸 추가</button>
+      </div>
+      <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'위치 조절(선택)' 누르고 방향키(← → ↑ ↓)로 미세 조절 가능!</p>
+      
+      <div id="joystickNotice">🎮 [배경 사진 X번 조종 중] 방향키로 미세 조절 중입니다! (Shift 누르면 10px씩)</div>
+
+      <div class="bg-slots-container" id="bgSlotsContainer">
+        <!-- 동적 생성 -->
+      </div>
+
+      <button class="action-btn" onclick="saveBackgroundSettings()">배경 설정 적용하기</button>
+      <button class="action-btn delete-bg-btn" onclick="removeBackgroundAll()">모든 배경 사진 초기화</button>
+    </div>
+
     <div class="admin-section">
       <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
-      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요. (난이도는 1~5 숫자 입력)</p>
+      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요.</p>
       <div class="form-group">
         <input type="file" id="csvFileInput" accept=".csv">
         <button class="action-btn import-btn" onclick="importCSV()">파일 불러오기</button>
@@ -287,10 +330,139 @@
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
+    backgrounds: [],
     password: "12345"
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
+  if (!pageInfo.backgrounds) pageInfo.backgrounds = [];
+
+  let activeBgIndex = null;
+
+  function renderBgSlotsHTML() {
+    const container = document.getElementById('bgSlotsContainer');
+    if (!container) return;
+    
+    if (pageInfo.backgrounds.length === 0) {
+      container.innerHTML = `<p style="text-align:center; color:#888; font-size:0.9em; margin:10px 0;">등록된 배경 사진이 없습니다. 위 버튼을 눌러 추가해보세요!</p>`;
+      return;
+    }
+
+    let html = "";
+    pageInfo.backgrounds.forEach((bg, i) => {
+      let isSelected = activeBgIndex === i;
+      html += `
+        <div class="bg-slot-box" style="border: ${isSelected ? '2px solid #28a745' : '1px solid #eee'};">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h6 style="margin: 0;">배경 사진 ${i+1} ${bg.image ? '✨(등록됨)' : ''}</h6>
+            <div style="display:flex; gap:5px;">
+              <button type="button" class="btn-select-bg ${isSelected ? 'active' : ''}" onclick="selectBgForJoystick(${i})">${isSelected ? '🎮 조종 중(선택됨)' : '🎯 위치 조절(선택)'}</button>
+              <button type="button" class="btn-delete-bg-slot" onclick="removeSingleBackground(${i})">🗑️ 삭제</button>
+            </div>
+          </div>
+          <input type="file" id="bgInput_${i}" accept="image/*" style="margin-bottom: 5px; width: 100%; box-sizing: border-box;">
+          <div class="form-row">
+            <input type="text" id="bgSize_${i}" placeholder="크기 (예: 300px)" value="${bg.size || '300px'}">
+            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 100px 200px)" value="${bg.position || 'center center'}">
+          </div>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+
+    const notice = document.getElementById('joystickNotice');
+    if (activeBgIndex !== null && activeBgIndex < pageInfo.backgrounds.length) {
+      notice.style.display = 'block';
+      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 키보드 방향키(← → ↑ ↓)로 위치를 미세 조절하세요! (Shift 누르면 10px씩)`;
+    } else {
+      notice.style.display = 'none';
+      activeBgIndex = null;
+    }
+  }
+
+  function addBgSlot(image = "", size = "300px", position = "center center") {
+    syncInputsToData();
+    pageInfo.backgrounds.push({ image, size, position });
+    renderBgSlotsHTML();
+  }
+
+  function removeSingleBackground(index) {
+    syncInputsToData();
+    pageInfo.backgrounds.splice(index, 1);
+    if (activeBgIndex === index) activeBgIndex = null;
+    else if (activeBgIndex > index) activeBgIndex--;
+    renderBgSlotsHTML();
+    saveBackgroundSettings(true);
+  }
+
+  function removeBackgroundAll() {
+    if (confirm("모든 배경 사진을 초기화하시겠습니까?")) {
+      pageInfo.backgrounds = [];
+      activeBgIndex = null;
+      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+      renderPageInfo();
+      renderBgSlotsHTML();
+      alert("모든 배경 사진이 초기화되었습니다.");
+    }
+  }
+
+  function selectBgForJoystick(index) {
+    syncInputsToData();
+    if (activeBgIndex === index) {
+      activeBgIndex = null;
+    } else {
+      activeBgIndex = index;
+    }
+    renderBgSlotsHTML();
+  }
+
+  function syncInputsToData() {
+    pageInfo.backgrounds.forEach((bg, i) => {
+      const sizeInput = document.getElementById(`bgSize_${i}`);
+      const posInput = document.getElementById(`bgPos_${i}`);
+      if (sizeInput) bg.size = sizeInput.value.trim() || "300px";
+      if (posInput) bg.position = posInput.value.trim() || "center center";
+    });
+  }
+
+  window.addEventListener('keydown', function(e) {
+    if (activeBgIndex === null || document.getElementById('adminBox').style.display !== 'block') return;
+    
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+      } else {
+        return; 
+      }
+    }
+
+    const bg = pageInfo.backgrounds[activeBgIndex];
+    if (!bg) return;
+
+    let step = e.shiftKey ? 10 : 1;
+    let posParts = bg.position ? bg.position.split(' ') : ['center', 'center'];
+    let xStr = posParts[0] || '0px';
+    let yStr = posParts[1] || '0px';
+
+    let getPx = (str) => {
+      let num = parseInt(str);
+      return isNaN(num) ? 0 : num;
+    };
+
+    let x = getPx(xStr);
+    let y = getPx(yStr);
+
+    if (e.key === 'ArrowLeft') x -= step;
+    if (e.key === 'ArrowRight') x += step;
+    if (e.key === 'ArrowUp') y -= step;
+    if (e.key === 'ArrowDown') y += step;
+
+    bg.position = `${x}px ${y}px`;
+    
+    renderPageInfo();
+    const posInput = document.getElementById(`bgPos_${activeBgIndex}`);
+    if (posInput) posInput.value = bg.position;
+  });
 
   const urlParams = new URLSearchParams(window.location.search);
   const isAdmin = urlParams.get('admin') === 'true';
@@ -299,6 +471,7 @@
     const passwordInput = prompt("관리자 비밀번호를 입력하세요\n(초기 비밀번호: 12345):");
     if (passwordInput === pageInfo.password) { 
       document.getElementById('adminBox').style.display = 'block';
+      renderBgSlotsHTML();
     } else {
       alert("비밀번호가 틀렸습니다! 일반 시청자 모드로 접속합니다.");
       window.location.href = window.location.pathname; 
@@ -312,6 +485,26 @@
     
     document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
     document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
+    
+    let images = [];
+    let sizes = [];
+    let positions = [];
+
+    pageInfo.backgrounds.forEach(bg => {
+      if (bg.image) {
+        images.push(`url(${bg.image})`);
+        sizes.push(bg.size || "300px");
+        positions.push(bg.position || "center center");
+      }
+    });
+
+    if (images.length > 0) {
+      document.documentElement.style.setProperty('background-image', images.join(', '));
+      document.documentElement.style.setProperty('background-size', sizes.join(', '));
+      document.documentElement.style.setProperty('background-position', positions.join(', '));
+    } else {
+      document.documentElement.style.setProperty('background-image', 'none');
+    }
 
     if (document.getElementById('adminBox').style.display === 'block') {
       document.getElementById('settingIcons').value = pageInfo.icons;
@@ -336,6 +529,42 @@
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
     renderPageInfo();
     alert("디자인과 설정이 성공적으로 변경되었습니다!");
+  }
+
+  function saveBackgroundSettings(silent = false) {
+    syncInputsToData();
+
+    let filesToLoad = [];
+    pageInfo.backgrounds.forEach((bg, i) => {
+      const fileInput = document.getElementById(`bgInput_${i}`);
+      if (fileInput && fileInput.files[0]) {
+        filesToLoad.push({ index: i, file: fileInput.files[0] });
+      }
+    });
+
+    if (filesToLoad.length === 0) {
+      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+      renderPageInfo();
+      renderBgSlotsHTML();
+      if (!silent) alert("배경 설정이 적용되었습니다! ✨");
+      return;
+    }
+
+    let loadedCount = 0;
+    filesToLoad.forEach(item => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        pageInfo.backgrounds[item.index].image = e.target.result;
+        loadedCount++;
+        if (loadedCount === filesToLoad.length) {
+          localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+          renderPageInfo();
+          renderBgSlotsHTML();
+          if (!silent) alert("모든 배경 사진과 설정이 성공적으로 적용되었습니다! ✨");
+        }
+      };
+      reader.readAsDataURL(item.file);
+    });
   }
 
   function searchLyricsOnNaver(titleId, artistId) {
@@ -473,7 +702,6 @@
         rightButtons += `<button class="icon-btn" onclick="deleteSong(${song.id})" title="삭제">❌</button>`;
       }
 
-      // 별점 생성 (예: ★★★☆☆)
       let diffVal = song.difficulty || 3;
       let stars = "★".repeat(diffVal) + "☆".repeat(5 - diffVal);
 

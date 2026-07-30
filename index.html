@@ -4,13 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>스트리머 노래책</title>
-<!-- 구글 시트 데이터를 쉽게 읽어오기 위한 도구 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root {
-    /* 여기서 디자인 색상을 변경할 수 있습니다 */
-    --primary: #ff85a2; /* 포인트(글씨/버튼) 색상 */
-    --bg: #fff5f7;      /* 전체 배경 색상 */
+    --primary: #ff85a2;
+    --bg: #fff5f7;
     --text: #333;
     --border: #ffd1dc;
   }
@@ -22,6 +19,7 @@
     padding: 20px;
     display: flex;
     justify-content: center;
+    transition: background-color 0.3s ease;
   }
   .container {
     max-width: 600px;
@@ -33,15 +31,46 @@
   }
   
   header { text-align: center; margin-bottom: 25px; }
-  .icons { color: var(--primary); font-size: 1.2em; margin-bottom: 10px; }
-  header h1 { color: var(--primary); margin: 5px 0; font-size: 1.8em; }
+  .icons { color: var(--primary); font-size: 1.2em; margin-bottom: 10px; transition: color 0.3s; }
+  header h1 { color: var(--primary); margin: 5px 0; font-size: 1.8em; transition: color 0.3s; }
   header p { color: #666; font-size: 0.95em; line-height: 1.5; white-space: pre-wrap; }
   
-  .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
-  input[type="text"].search { 
-    width: 100%; padding: 12px 15px; border: 1px solid var(--border); 
-    border-radius: 10px; box-sizing: border-box; font-size: 1em; 
+  #adminBox {
+    background: #fdf2f4;
+    border: 2px dashed var(--primary);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    display: none;
   }
+  #adminBox h4 { margin: 0 0 15px 0; color: var(--primary); font-size: 1.1em; border-bottom: 1px solid var(--border); padding-bottom: 10px;}
+  .admin-section { margin-bottom: 15px; }
+  .admin-section h5 { margin: 0 0 8px 0; color: #555; }
+  
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-row { display: flex; gap: 8px; align-items: center; }
+  .color-row { display: flex; gap: 15px; font-size: 0.9em; color: #555; margin-bottom: 5px; }
+  .color-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+  input[type="color"] { width: 35px; height: 35px; padding: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+  
+  input[type="text"], textarea {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.9em;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  button.action-btn {
+    background: var(--primary); color: white; border: none;
+    padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%;
+    transition: opacity 0.2s;
+  }
+  button.action-btn:hover { opacity: 0.8; }
+
+  .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
+  input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
   .genres { display: flex; gap: 8px; flex-wrap: wrap; }
   .badge {
     background: #f4f4f4; color: #555; border: none;
@@ -65,14 +94,21 @@
   }
   
   .btn-small {
-    background: white; border: 1px solid var(--primary); color: var(--primary);
+    background: white; border: 1px solid var(--border); color: #555;
     padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600;
   }
-  .btn-small:hover { background: var(--bg); }
+  .btn-lyrics { border-color: var(--primary); color: var(--primary); }
+  .btn-small:hover { background: #f9f9f9; }
+  .icon-btn { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 4px; }
+  .icon-btn:hover { transform: scale(1.1); }
 
-  #loadingBox { text-align: center; padding: 30px; color: #888; font-weight: bold; }
+  .lyrics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+  .lyrics-header span { font-size: 0.85em; color: #666; font-weight: bold; }
+  
+  .memo-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .memo-row input.memo-label { flex: 0.35; }
+  .memo-row input.memo-content { flex: 0.65; }
 
-  /* 모달창 */
   .modal-overlay {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;
@@ -82,30 +118,79 @@
     max-height: 80vh; display: flex; flex-direction: column; gap: 15px;
   }
   .modal-title { font-size: 1.2em; font-weight: bold; color: var(--primary); margin: 0; }
+  
   .modal-memo {
     background: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 0.9em;
-    color: #444; border-left: 4px solid var(--primary); word-break: break-all; display: none;
+    color: #444; border-left: 4px solid var(--primary); word-break: break-all;
+    display: none;
   }
+  .modal-memo-item { margin-bottom: 6px; }
+  .modal-memo-item:last-child { margin-bottom: 0; }
   .modal-lyrics { flex: 1; overflow-y: auto; white-space: pre-wrap; font-size: 0.95em; line-height: 1.6; color: #444; }
-  .close-btn {
-    background: var(--primary); color: white; border: none; padding: 10px; 
-    border-radius: 8px; cursor: pointer; font-weight: bold;
-  }
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <!-- 상단 텍스트는 여기서 수정할 수 있습니다 -->
-    <div class="icons">♥ ♪ ♥</div>
-    <h1>나만의 노래책</h1>
-    <p>곡명이나 가수를 검색하거나,<br>원하는 장르에서 신청곡을 골라보세요.</p>
+    <div class="icons" id="pageIconsDisplay">♥ ♪ ♥</div>
+    <h1 id="pageTitleDisplay">나만의 노래책</h1>
+    <p id="pageDescDisplay">곡명이나 가수를 검색하거나,<br>원하는 장르에서 신청곡을 골라보세요.</p>
   </header>
+
+  <!-- 관리자 전용 영역 -->
+  <div id="adminBox">
+    <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
+    
+    <div class="admin-section">
+      <h5>🎨 페이지 색상 및 글자 설정</h5>
+      <div class="form-group">
+        <div class="color-row">
+          <label>포인트 색: <input type="color" id="settingPrimaryColor"></label>
+          <label>배경 색: <input type="color" id="settingBgColor"></label>
+        </div>
+        <input type="text" id="settingIcons" placeholder="상단 아이콘 (예: ♥ ♪ ♥)">
+        <input type="text" id="settingTitle" placeholder="메인 제목 입력">
+        <textarea id="settingDesc" placeholder="설명 글 입력 (엔터로 줄바꿈 가능)"></textarea>
+        <button class="action-btn" onclick="savePageSettings()">설정 적용하기</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h5>🎵 새 노래 추가</h5>
+      <div class="form-group">
+        <div class="form-row">
+          <input type="text" id="newTitle" placeholder="곡명">
+          <input type="text" id="newArtist" placeholder="가수">
+          <!-- 장르를 직접 타이핑할 수 있도록 텍스트칸으로 변경 -->
+          <input type="text" id="newGenre" placeholder="장르 (예: J-POP, 뮤지컬)" style="flex: 0.5;">
+        </div>
+        
+        <div class="lyrics-header" style="margin-top: 5px;">
+          <span>📝 메모</span>
+          <button type="button" class="btn-small" onclick="addMemoRow('newMemoList')">➕ 메모 칸 추가</button>
+        </div>
+        <div id="newMemoList" class="memo-list">
+          <div class="form-row memo-row">
+            <input type="text" class="memo-label" placeholder="이름(예: MR)">
+            <input type="text" class="memo-content" placeholder="메모 내용 (링크 자동 연결)">
+            <button type="button" class="btn-small" onclick="this.parentElement.remove()">❌</button>
+          </div>
+        </div>
+        
+        <div class="lyrics-header">
+          <span>📝 가사</span>
+          <button type="button" id="autoLyricsBtn" class="btn-small btn-lyrics" onclick="fetchLyrics('newTitle', 'newArtist', 'newLyrics', 'autoLyricsBtn')">✨ 자동 검색</button>
+        </div>
+        <textarea id="newLyrics" placeholder="자동 검색을 누르거나 직접 입력하세요"></textarea>
+        
+        <button class="action-btn" onclick="addNewSong()">목록에 추가하기</button>
+      </div>
+    </div>
+  </div>
 
   <div class="controls">
     <input type="text" id="searchInput" class="search" placeholder="⌕ 곡명 또는 가수 검색...">
-    
-    <!-- 장르 버튼이 들어갈 자리 (엑셀 데이터를 보고 자동으로 채워집니다) -->
+    <!-- 엑셀 데이터 대신, 저장된 노래 목록을 바탕으로 카테고리가 자동 생성됩니다 -->
     <div class="genres" id="genreContainer">
       <button class="badge active" data-genre="all">전체</button>
     </div>
@@ -116,87 +201,194 @@
       <h3>노래 목록</h3>
       <span>총 <b id="songCount">0</b>곡</span>
     </div>
-    
-    <div id="loadingBox">데이터를 불러오는 중입니다... ⏳</div>
     <ul class="song-list" id="songList"></ul>
   </div>
 </div>
 
-<!-- 가사 & 메모 팝업창 -->
-<div class="modal-overlay" id="lyricsModal" onclick="closeModal(event)">
+<!-- 가사 & 다중 메모 보기 모달창 -->
+<div class="modal-overlay" id="lyricsModal" onclick="closeModal('lyricsModal', event)">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h3 class="modal-title" id="lyricsModalTitle">곡 제목</h3>
     <div class="modal-memo" id="lyricsModalMemo"></div>
     <div class="modal-lyrics" id="lyricsModalContent">가사 내용</div>
-    <button class="close-btn" onclick="closeModal('force')">닫기</button>
+    <button class="action-btn" style="padding: 8px;" onclick="closeModal('lyricsModal')">닫기</button>
+  </div>
+</div>
+
+<!-- 노래 수정 모달창 -->
+<div class="modal-overlay" id="editModal" onclick="closeModal('editModal', event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <h3 class="modal-title">곡 정보 수정</h3>
+    <input type="hidden" id="editSongId">
+    <div class="form-group">
+      <div class="form-row">
+        <input type="text" id="editTitle" placeholder="곡명">
+        <input type="text" id="editArtist" placeholder="가수">
+        <input type="text" id="editGenre" placeholder="장르 수정" style="flex: 0.5;">
+      </div>
+      
+      <div class="lyrics-header" style="margin-top: 5px;">
+        <span>📝 메모</span>
+        <button type="button" class="btn-small" onclick="addMemoRow('editMemoList')">➕ 메모 칸 추가</button>
+      </div>
+      <div id="editMemoList" class="memo-list"></div>
+      
+      <div class="lyrics-header" style="margin-top: 10px;">
+        <span>📝 가사 수정</span>
+        <button type="button" id="editAutoLyricsBtn" class="btn-small btn-lyrics" onclick="fetchLyrics('editTitle', 'editArtist', 'editLyrics', 'editAutoLyricsBtn')">✨ 자동 검색</button>
+      </div>
+      <textarea id="editLyrics" placeholder="가사를 입력하세요" style="min-height: 120px;"></textarea>
+      
+      <button class="action-btn" onclick="saveEditedSong()">수정 완료</button>
+      <button class="btn-small" onclick="closeModal('editModal')" style="padding: 10px;">취소</button>
+    </div>
   </div>
 </div>
 
 <script>
-  // ★★★ [중요] 방금 복사한 구글 엑셀(.csv) 링크를 이 아래에 꼭 붙여넣으세요! ★★★
-  const sheetUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTt93sfFIXdssqt8VfHI-u3HmmxOaFpDGaN-efVI3xxkvjSV9hTGgkf5ZjNTgaW3ftpbD6jdN1ZP6hm/pub?output=csv";
-  
-  let songs = [];
-  let currentGenre = "all";
+  // 1. 관리자 모드 확인
+  const urlParams = new URLSearchParams(window.location.search);
+  const isAdmin = urlParams.get('admin') === 'true';
 
-  // 구글 시트 데이터 가져오기
-  function loadSongsFromGoogle() {
-    if(sheetUrl === "여기에_구글웹게시_링크를_붙여넣으세요") {
-      document.getElementById('loadingBox').textContent = "오류: 코드 안의 sheetUrl에 구글 링크를 먼저 넣어주세요!";
+  if (isAdmin) {
+    document.getElementById('adminBox').style.display = 'block';
+  }
+
+  // 2. 기본 세팅
+  const defaultPageInfo = {
+    icons: "♥ ♪ ♥",
+    title: "나만의 노래책",
+    desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
+    primaryColor: "#ff85a2",
+    bgColor: "#fff5f7"
+  };
+  
+  let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
+
+  function renderPageInfo() {
+    document.getElementById('pageIconsDisplay').textContent = pageInfo.icons;
+    document.getElementById('pageTitleDisplay').textContent = pageInfo.title;
+    document.getElementById('pageDescDisplay').textContent = pageInfo.desc;
+    
+    document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
+    document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
+
+    if (isAdmin) {
+      document.getElementById('settingIcons').value = pageInfo.icons;
+      document.getElementById('settingTitle').value = pageInfo.title;
+      document.getElementById('settingDesc').value = pageInfo.desc;
+      document.getElementById('settingPrimaryColor').value = pageInfo.primaryColor;
+      document.getElementById('settingBgColor').value = pageInfo.bgColor;
+    }
+  }
+
+  function savePageSettings() {
+    pageInfo.icons = document.getElementById('settingIcons').value.trim();
+    pageInfo.title = document.getElementById('settingTitle').value.trim();
+    pageInfo.desc = document.getElementById('settingDesc').value.trim();
+    pageInfo.primaryColor = document.getElementById('settingPrimaryColor').value;
+    pageInfo.bgColor = document.getElementById('settingBgColor').value;
+    
+    localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+    renderPageInfo();
+    alert("디자인과 설정이 성공적으로 변경되었습니다!");
+  }
+
+  // 가사 불러오기 기능
+  async function fetchLyrics(titleId, artistId, lyricsId, btnId) {
+    const title = document.getElementById(titleId).value.trim();
+    const artist = document.getElementById(artistId).value.trim();
+    const btn = document.getElementById(btnId);
+
+    if (!title || !artist) {
+      alert("가사를 검색하려면 곡명과 가수를 먼저 입력해주세요!");
       return;
     }
 
-    Papa.parse(sheetUrl, {
-      download: true,
-      header: true,
-      complete: function(results) {
-        songs = results.data.filter(row => row['곡명'] && row['가수']);
-        document.getElementById('loadingBox').style.display = 'none';
-        
-        // 데이터가 다 불러와지면 장르 버튼들을 자동으로 생성하고 화면을 그립니다
-        generateGenreButtons();
-        renderSongs();
-      },
-      error: function() {
-        document.getElementById('loadingBox').textContent = "데이터를 불러오는데 실패했습니다. 구글 시트 링크를 다시 확인해주세요.";
+    btn.textContent = "⏳ 검색 중...";
+    btn.disabled = true;
+
+    try {
+      const query = encodeURIComponent(`${title} ${artist}`);
+      const response = await fetch(`https://lrclib.net/api/search?q=${query}`);
+      const data = await response.json();
+
+      if (data && data.length > 0 && data[0].plainLyrics) {
+        document.getElementById(lyricsId).value = data[0].plainLyrics;
+        alert("✨ 가사를 성공적으로 불러왔습니다!");
+      } else {
+        alert("🥲 해당 곡의 가사를 찾지 못했습니다.\n(직접 복사해서 붙여넣어주세요)");
       }
-    });
+    } catch (error) {
+      alert("오류가 발생했습니다. 인터넷 연결을 확인해주세요.");
+    } finally {
+      btn.textContent = "✨ 자동 검색";
+      btn.disabled = false;
+    }
   }
 
-  // 엑셀 데이터를 바탕으로 장르(카테고리) 버튼 자동 생성
+  // 동적 메모 기능
+  function addMemoRow(containerId, label = "", content = "") {
+    const container = document.getElementById(containerId);
+    const row = document.createElement("div");
+    row.className = "form-row memo-row";
+    row.innerHTML = `
+      <input type="text" class="memo-label" placeholder="메모 이름" value="${label}">
+      <input type="text" class="memo-content" placeholder="메모 내용" value="${content}">
+      <button type="button" class="btn-small" onclick="this.parentElement.remove()">❌</button>
+    `;
+    container.appendChild(row);
+  }
+
+  function getMemosFromContainer(containerId) {
+    const rows = document.querySelectorAll(`#${containerId} .memo-row`);
+    const memos = [];
+    rows.forEach(row => {
+      const label = row.querySelector(".memo-label").value.trim();
+      const content = row.querySelector(".memo-content").value.trim();
+      if (label || content) {
+        memos.push({ label: label || "메모", content });
+      }
+    });
+    return memos;
+  }
+
+  // ★ 여기에 나중에 직접 노래를 코드로 추가할 수 있습니다.
+  const defaultSongs = [];
+  
+  let songs = JSON.parse(localStorage.getItem("mySongs")) || defaultSongs;
+  let currentGenre = "all";
+
+  function saveSongsToStorage() {
+    localStorage.setItem("mySongs", JSON.stringify(songs));
+  }
+
+  // ★ 장르(카테고리) 자동 생성 함수
   function generateGenreButtons() {
     const container = document.getElementById("genreContainer");
+    container.innerHTML = `<button class="badge ${currentGenre === 'all' ? 'active' : ''}" data-genre="all">전체</button>`;
     
-    // '전체' 버튼은 기본으로 둡니다
-    container.innerHTML = '<button class="badge active" data-genre="all">전체</button>';
-    
-    // 엑셀에서 모든 장르를 가져와 중복을 제거합니다
-    const allGenres = songs.map(song => song['장르'] ? song['장르'].trim() : "기타");
-    const uniqueGenres = [...new Set(allGenres)];
+    // 현재 노래들에 있는 장르만 모아서 중복 제거
+    const allGenres = songs.map(song => song.genre ? song.genre.trim() : "기타");
+    const uniqueGenres = [...new Set(allGenres)].filter(g => g !== "");
 
-    // 중복 제거된 장르들로 각각 버튼을 만듭니다
     uniqueGenres.forEach(genre => {
-      if(genre) {
-        const btn = document.createElement("button");
-        btn.className = "badge";
-        btn.setAttribute("data-genre", genre);
-        btn.textContent = genre;
-        container.appendChild(btn);
-      }
+      const btn = document.createElement("button");
+      btn.className = `badge ${currentGenre === genre ? 'active' : ''}`;
+      btn.setAttribute("data-genre", genre);
+      btn.textContent = genre;
+      container.appendChild(btn);
     });
   }
 
-  // 화면에 노래 목록 그리기
   function renderSongs() {
+    generateGenreButtons(); // 장르 버튼 새로고침
+
     const searchText = document.getElementById("searchInput").value.toLowerCase();
-    
-    // 검색어 및 현재 선택된 장르에 맞게 노래 걸러내기
     const filteredSongs = songs.filter(song => {
-      const genre = song['장르'] ? song['장르'].trim() : "기타";
-      const matchGenre = currentGenre === "all" || genre === currentGenre;
-      const title = (song['곡명'] || "").toLowerCase();
-      const artist = (song['가수'] || "").toLowerCase();
-      const matchSearch = title.includes(searchText) || artist.includes(searchText);
+      const songGenre = song.genre ? song.genre.trim() : "기타";
+      const matchGenre = currentGenre === "all" || songGenre === currentGenre;
+      const matchSearch = song.title.toLowerCase().includes(searchText) || song.artist.toLowerCase().includes(searchText);
       return matchGenre && matchSearch;
     });
 
@@ -204,27 +396,30 @@
     songList.innerHTML = "";
     document.getElementById("songCount").textContent = filteredSongs.length;
 
-    // 걸러진 노래들을 화면에 추가
-    filteredSongs.forEach((song, index) => {
+    filteredSongs.forEach(song => {
       const li = document.createElement("li");
       li.className = "song-item";
       
-      const genre = song['장르'] ? song['장르'].trim() : "기타";
-      let rightButtons = `<span class="song-genre">${genre}</span>`;
+      const songGenre = song.genre ? song.genre.trim() : "기타";
+      let rightButtons = `<span class="song-genre">${songGenre}</span>`;
       
-      const hasLyrics = song['가사'] && song['가사'].trim() !== "";
-      const hasMemo = song['메모'] && song['메모'].trim() !== "";
+      const hasLyrics = song.lyrics && song.lyrics.trim() !== "";
+      const hasOldMemo = song.memo && song.memo.trim() !== "";
+      const hasNewMemos = song.memos && song.memos.length > 0;
 
-      if (hasLyrics || hasMemo) {
-        // 실제 데이터(전체 배열) 안에서의 진짜 인덱스를 찾아 연결
-        const realIndex = songs.indexOf(song);
-        rightButtons += `<button class="btn-small" onclick="openLyrics(${realIndex})">가사/메모</button>`;
+      if (hasLyrics || hasOldMemo || hasNewMemos) {
+        rightButtons += `<button class="btn-small btn-lyrics" onclick="openLyrics(${song.id})">가사/메모</button>`;
       }
       
+      if (isAdmin) {
+        rightButtons += `<button class="icon-btn" onclick="openEditModal(${song.id})" title="수정">✏️</button>`;
+        rightButtons += `<button class="icon-btn" onclick="deleteSong(${song.id})" title="삭제">❌</button>`;
+      }
+
       li.innerHTML = `
         <div>
-          <div class="song-title">${song['곡명']}</div>
-          <div class="song-artist">${song['가수']}</div>
+          <div class="song-title">${song.title}</div>
+          <div class="song-artist">${song.artist}</div>
         </div>
         <div class="right-side">
           ${rightButtons}
@@ -234,36 +429,127 @@
     });
   }
 
-  // 가사/메모 팝업 띄우기
-  function openLyrics(index) {
-    const song = songs[index];
-    
+  function addNewSong() {
+    const title = document.getElementById("newTitle").value.trim();
+    const artist = document.getElementById("newArtist").value.trim();
+    let genre = document.getElementById("newGenre").value.trim();
+    if (genre === "") genre = "기타"; // 장르를 안 적으면 기타로 분류
+
+    const lyrics = document.getElementById("newLyrics").value.trim();
+    const memos = getMemosFromContainer("newMemoList");
+
+    if (!title || !artist) { alert("곡명과 가수를 입력해주세요!"); return; }
+
+    const newSong = { id: Date.now(), title, artist, genre, lyrics, memos };
+    songs.unshift(newSong); 
+    saveSongsToStorage();
+    renderSongs();
+
+    // 입력칸 초기화
+    document.getElementById("newTitle").value = "";
+    document.getElementById("newArtist").value = "";
+    document.getElementById("newGenre").value = "";
+    document.getElementById("newLyrics").value = "";
+    document.getElementById("newMemoList").innerHTML = "";
+    addMemoRow("newMemoList");
+  }
+
+  function deleteSong(id) {
+    if (confirm("이 곡을 삭제하시겠습니까?")) {
+      songs = songs.filter(song => song.id !== id);
+      saveSongsToStorage();
+      renderSongs();
+    }
+  }
+
+  function openEditModal(id) {
+    const song = songs.find(s => s.id === id);
     if(song) {
-      document.getElementById("lyricsModalTitle").textContent = `${song['곡명']} - ${song['가수']}`;
+      document.getElementById("editSongId").value = song.id;
+      document.getElementById("editTitle").value = song.title;
+      document.getElementById("editArtist").value = song.artist;
+      document.getElementById("editGenre").value = song.genre || "기타";
+      document.getElementById("editLyrics").value = song.lyrics || "";
+      
+      const editMemoList = document.getElementById("editMemoList");
+      editMemoList.innerHTML = ""; 
+      
+      let existingMemos = song.memos || [];
+      if (song.memo && existingMemos.length === 0) {
+        existingMemos = [{ label: "메모", content: song.memo }];
+      }
+
+      if (existingMemos.length > 0) {
+        existingMemos.forEach(m => addMemoRow("editMemoList", m.label, m.content));
+      } else {
+        addMemoRow("editMemoList"); 
+      }
+
+      document.getElementById("editModal").style.display = "flex";
+    }
+  }
+
+  function saveEditedSong() {
+    const id = parseInt(document.getElementById("editSongId").value);
+    const title = document.getElementById("editTitle").value.trim();
+    const artist = document.getElementById("editArtist").value.trim();
+    let genre = document.getElementById("editGenre").value.trim();
+    if (genre === "") genre = "기타";
+
+    const lyrics = document.getElementById("editLyrics").value.trim();
+    const memos = getMemosFromContainer("editMemoList");
+
+    if (!title || !artist) { alert("곡명과 가수를 입력해주세요!"); return; }
+
+    const songIndex = songs.findIndex(s => s.id === id);
+    if (songIndex !== -1) {
+      songs[songIndex] = { id, title, artist, genre, lyrics, memos };
+      delete songs[songIndex].memo; 
+      saveSongsToStorage();
+      renderSongs();
+      closeModal('editModal');
+    }
+  }
+
+  function openLyrics(id) {
+    const song = songs.find(s => s.id === id);
+    if(song) {
+      document.getElementById("lyricsModalTitle").textContent = `${song.title} - ${song.artist}`;
       
       const memoEl = document.getElementById("lyricsModalMemo");
-      if(song['메모'] && song['메모'].trim() !== "") {
-        let safeMemo = song['메모'].replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        let linkedMemo = safeMemo.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--primary); text-decoration:underline;">$1</a>');
-        
-        memoEl.innerHTML = `<strong>💡 메모:</strong> ${linkedMemo}`;
+      memoEl.innerHTML = ""; 
+
+      let displayMemos = song.memos || [];
+      if (song.memo && displayMemos.length === 0) {
+        displayMemos = [{ label: "메모", content: song.memo }];
+      }
+
+      if (displayMemos.length > 0) {
+        displayMemos.forEach(m => {
+          let safeContent = m.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          let linkedContent = safeContent.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--primary); text-decoration:underline;">$1</a>');
+          
+          const memoDiv = document.createElement("div");
+          memoDiv.className = "modal-memo-item";
+          memoDiv.innerHTML = `<strong>💡 ${m.label}:</strong> ${linkedContent}`;
+          memoEl.appendChild(memoDiv);
+        });
         memoEl.style.display = "block";
       } else {
         memoEl.style.display = "none";
       }
 
-      document.getElementById("lyricsModalContent").textContent = song['가사'] || "(가사가 없습니다)";
+      document.getElementById("lyricsModalContent").textContent = song.lyrics || "(가사가 없습니다)";
       document.getElementById("lyricsModal").style.display = "flex";
     }
   }
 
-  function closeModal(event) {
-    if(event === 'force' || event.target.id === 'lyricsModal') {
-      document.getElementById("lyricsModal").style.display = "none";
+  function closeModal(modalId, event) {
+    if(!event || event.target.id === modalId) {
+      document.getElementById(modalId).style.display = "none";
     }
   }
 
-  // 장르 카테고리 버튼 클릭 시 색상 변경 및 필터링 동작
   document.getElementById("genreContainer").addEventListener("click", (e) => {
     if (e.target.tagName === "BUTTON") {
       document.querySelectorAll(".badge").forEach(btn => btn.classList.remove("active"));
@@ -275,8 +561,8 @@
 
   document.getElementById("searchInput").addEventListener("input", renderSongs);
 
-  // 실행
-  loadSongsFromGoogle();
+  renderPageInfo();
+  renderSongs();
 </script>
 </body>
 </html>

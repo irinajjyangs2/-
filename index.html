@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>스트리머 노래책</title>
+<!-- 엑셀(CSV) 파일을 읽기 위한 도구 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
   :root {
     --primary: #ff85a2;
@@ -44,7 +46,7 @@
     display: none;
   }
   #adminBox h4 { margin: 0 0 15px 0; color: var(--primary); font-size: 1.1em; border-bottom: 1px solid var(--border); padding-bottom: 10px;}
-  .admin-section { margin-bottom: 15px; }
+  .admin-section { margin-bottom: 15px; background: white; padding: 12px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
   .admin-section h5 { margin: 0 0 8px 0; color: #555; }
   
   .form-group { display: flex; flex-direction: column; gap: 8px; }
@@ -62,12 +64,18 @@
     font-size: 0.9em;
   }
   textarea { resize: vertical; min-height: 60px; }
+  
+  input[type="file"] {
+    padding: 8px; border: 1px dashed var(--primary); border-radius: 8px; background: var(--bg); font-size: 0.9em;
+  }
+
   button.action-btn {
     background: var(--primary); color: white; border: none;
     padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%;
     transition: opacity 0.2s;
   }
   button.action-btn:hover { opacity: 0.8; }
+  button.import-btn { background: #555; }
 
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
   input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
@@ -140,27 +148,23 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
+    <!-- ★ 새로 추가된 엑셀 일괄 등록 섹션 ★ -->
     <div class="admin-section">
-      <h5>🎨 페이지 색상 및 글자 설정</h5>
+      <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
+      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요.</p>
       <div class="form-group">
-        <div class="color-row">
-          <label>포인트 색: <input type="color" id="settingPrimaryColor"></label>
-          <label>배경 색: <input type="color" id="settingBgColor"></label>
-        </div>
-        <input type="text" id="settingIcons" placeholder="상단 아이콘 (예: ♥ ♪ ♥)">
-        <input type="text" id="settingTitle" placeholder="메인 제목 입력">
-        <textarea id="settingDesc" placeholder="설명 글 입력 (엔터로 줄바꿈 가능)"></textarea>
-        <button class="action-btn" onclick="savePageSettings()">설정 적용하기</button>
+        <input type="file" id="csvFileInput" accept=".csv">
+        <button class="action-btn import-btn" onclick="importCSV()">파일 불러오기</button>
       </div>
     </div>
 
     <div class="admin-section">
-      <h5>🎵 새 노래 추가</h5>
+      <h5>🎵 새 노래 개별 추가</h5>
       <div class="form-group">
         <div class="form-row">
           <input type="text" id="newTitle" placeholder="곡명">
           <input type="text" id="newArtist" placeholder="가수">
-          <input type="text" id="newGenre" placeholder="장르 (예: J-POP, 뮤지컬)" style="flex: 0.5;">
+          <input type="text" id="newGenre" placeholder="장르 (예: J-POP)" style="flex: 0.5;">
         </div>
         
         <div class="lyrics-header" style="margin-top: 5px;">
@@ -170,19 +174,32 @@
         <div id="newMemoList" class="memo-list">
           <div class="form-row memo-row">
             <input type="text" class="memo-label" placeholder="이름(예: MR)">
-            <input type="text" class="memo-content" placeholder="메모 내용 (링크 자동 연결)">
+            <input type="text" class="memo-content" placeholder="메모 내용">
             <button type="button" class="btn-small" onclick="this.parentElement.remove()">❌</button>
           </div>
         </div>
         
-        <!-- 자동 검색 대신 네이버 검색 버튼으로 변경 -->
         <div class="lyrics-header">
           <span>📝 가사</span>
           <button type="button" class="btn-small btn-lyrics" onclick="searchLyricsOnNaver('newTitle', 'newArtist')">🔍 네이버에서 찾기</button>
         </div>
-        <textarea id="newLyrics" placeholder="버튼을 눌러 네이버에서 찾은 가사를 복사해 붙여넣으세요"></textarea>
+        <textarea id="newLyrics" placeholder="버튼을 눌러 찾은 가사를 붙여넣으세요"></textarea>
         
         <button class="action-btn" onclick="addNewSong()">목록에 추가하기</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <h5>🎨 페이지 디자인 설정</h5>
+      <div class="form-group">
+        <div class="color-row">
+          <label>포인트 색: <input type="color" id="settingPrimaryColor"></label>
+          <label>배경 색: <input type="color" id="settingBgColor"></label>
+        </div>
+        <input type="text" id="settingIcons" placeholder="상단 아이콘 (예: ♥ ♪ ♥)">
+        <input type="text" id="settingTitle" placeholder="메인 제목 입력">
+        <textarea id="settingDesc" placeholder="설명 글 입력"></textarea>
+        <button class="action-btn" onclick="savePageSettings()">디자인 적용하기</button>
       </div>
     </div>
   </div>
@@ -229,7 +246,6 @@
       </div>
       <div id="editMemoList" class="memo-list"></div>
       
-      <!-- 수정 모달에도 네이버 검색 버튼 적용 -->
       <div class="lyrics-header" style="margin-top: 10px;">
         <span>📝 가사 수정</span>
         <button type="button" class="btn-small btn-lyrics" onclick="searchLyricsOnNaver('editTitle', 'editArtist')">🔍 네이버에서 찾기</button>
@@ -289,17 +305,10 @@
     alert("디자인과 설정이 성공적으로 변경되었습니다!");
   }
 
-  // ★ 네이버 검색창을 열어주는 새 함수
   function searchLyricsOnNaver(titleId, artistId) {
     const title = document.getElementById(titleId).value.trim();
     const artist = document.getElementById(artistId).value.trim();
-
-    if (!title || !artist) {
-      alert("가사를 검색하려면 곡명과 가수를 먼저 입력해주세요!");
-      return;
-    }
-    
-    // 네이버 검색 URL 생성 후 새 창 열기
+    if (!title || !artist) { alert("가사를 검색하려면 곡명과 가수를 먼저 입력해주세요!"); return; }
     const query = encodeURIComponent(`${artist} ${title} 가사`);
     window.open(`https://search.naver.com/search.naver?query=${query}`, "_blank");
   }
@@ -322,9 +331,7 @@
     rows.forEach(row => {
       const label = row.querySelector(".memo-label").value.trim();
       const content = row.querySelector(".memo-content").value.trim();
-      if (label || content) {
-        memos.push({ label: label || "메모", content });
-      }
+      if (label || content) { memos.push({ label: label || "메모", content }); }
     });
     return memos;
   }
@@ -335,6 +342,55 @@
 
   function saveSongsToStorage() {
     localStorage.setItem("mySongs", JSON.stringify(songs));
+  }
+
+  // ★ CSV 파일 불러오기 함수 ★
+  function importCSV() {
+    const fileInput = document.getElementById('csvFileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+      alert("파일을 먼저 선택해주세요!");
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true, // 첫 줄을 제목으로 인식
+      skipEmptyLines: true,
+      complete: function(results) {
+        let addedCount = 0;
+        
+        results.data.forEach(row => {
+          const title = row['곡명'] || row['제목'] || "";
+          const artist = row['가수'] || row['아티스트'] || "";
+          
+          if (title && artist) {
+            const genre = row['장르'] || "기타";
+            const lyrics = row['가사'] || "";
+            const memoText = row['메모'] || "";
+            const memos = memoText ? [{ label: "메모", content: memoText }] : [];
+
+            songs.unshift({
+              id: Date.now() + Math.random(),
+              title: title.trim(),
+              artist: artist.trim(),
+              genre: genre.trim(),
+              lyrics: lyrics.trim(),
+              memos: memos
+            });
+            addedCount++;
+          }
+        });
+        
+        saveSongsToStorage();
+        renderSongs();
+        alert(`성공적으로 ${addedCount}곡이 추가되었습니다! 🎉`);
+        fileInput.value = ""; // 파일 선택칸 초기화
+      },
+      error: function() {
+        alert("파일을 읽는 중 오류가 발생했습니다.");
+      }
+    });
   }
 
   function generateGenreButtons() {
@@ -412,7 +468,7 @@
 
     if (!title || !artist) { alert("곡명과 가수를 입력해주세요!"); return; }
 
-    const newSong = { id: Date.now(), title, artist, genre, lyrics, memos };
+    const newSong = { id: Date.now() + Math.random(), title, artist, genre, lyrics, memos };
     songs.unshift(newSong); 
     saveSongsToStorage();
     renderSongs();
@@ -446,22 +502,17 @@
       editMemoList.innerHTML = ""; 
       
       let existingMemos = song.memos || [];
-      if (song.memo && existingMemos.length === 0) {
-        existingMemos = [{ label: "메모", content: song.memo }];
-      }
-
+      if (song.memo && existingMemos.length === 0) { existingMemos = [{ label: "메모", content: song.memo }]; }
       if (existingMemos.length > 0) {
         existingMemos.forEach(m => addMemoRow("editMemoList", m.label, m.content));
-      } else {
-        addMemoRow("editMemoList"); 
-      }
+      } else { addMemoRow("editMemoList"); }
 
       document.getElementById("editModal").style.display = "flex";
     }
   }
 
   function saveEditedSong() {
-    const id = parseInt(document.getElementById("editSongId").value);
+    const id = parseFloat(document.getElementById("editSongId").value);
     const title = document.getElementById("editTitle").value.trim();
     const artist = document.getElementById("editArtist").value.trim();
     let genre = document.getElementById("editGenre").value.trim();
@@ -491,15 +542,12 @@
       memoEl.innerHTML = ""; 
 
       let displayMemos = song.memos || [];
-      if (song.memo && displayMemos.length === 0) {
-        displayMemos = [{ label: "메모", content: song.memo }];
-      }
+      if (song.memo && displayMemos.length === 0) { displayMemos = [{ label: "메모", content: song.memo }]; }
 
       if (displayMemos.length > 0) {
         displayMemos.forEach(m => {
           let safeContent = m.content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
           let linkedContent = safeContent.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--primary); text-decoration:underline;">$1</a>');
-          
           const memoDiv = document.createElement("div");
           memoDiv.className = "modal-memo-item";
           memoDiv.innerHTML = `<strong>💡 ${m.label}:</strong> ${linkedContent}`;

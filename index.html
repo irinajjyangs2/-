@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>노래책</title>
+<title>스트리머 노래책</title>
 <!-- 엑셀(CSV) 파일을 읽기 위한 도구 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -55,7 +55,7 @@
   .color-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   input[type="color"] { width: 35px; height: 35px; padding: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
   
-  input[type="text"], input[type="password"], textarea {
+  input[type="text"], input[type="password"], select, textarea {
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -96,6 +96,9 @@
   }
   .song-title { font-weight: 600; font-size: 1.1em; margin-bottom: 4px; }
   .song-artist { color: #888; font-size: 0.9em; }
+  .song-meta { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+  .song-difficulty { color: #f39c12; font-size: 0.85em; font-weight: bold; }
+  
   .right-side { display: flex; align-items: center; gap: 6px; }
   .song-genre {
     font-size: 0.8em; background: var(--bg); color: var(--primary);
@@ -151,7 +154,7 @@
     
     <div class="admin-section">
       <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
-      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요.</p>
+      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요. (난이도는 1~5 숫자 입력)</p>
       <div class="form-group">
         <input type="file" id="csvFileInput" accept=".csv">
         <button class="action-btn import-btn" onclick="importCSV()">파일 불러오기</button>
@@ -164,7 +167,16 @@
         <div class="form-row">
           <input type="text" id="newTitle" placeholder="곡명">
           <input type="text" id="newArtist" placeholder="가수">
-          <input type="text" id="newGenre" placeholder="장르 (예: J-POP)" style="flex: 0.5;">
+        </div>
+        <div class="form-row">
+          <input type="text" id="newGenre" placeholder="장르 (예: J-POP)" style="flex: 1;">
+          <select id="newDifficulty" style="flex: 1;">
+            <option value="1">★ 난이도 1</option>
+            <option value="2">★★ 난이도 2</option>
+            <option value="3" selected>★★★ 난이도 3</option>
+            <option value="4">★★★★ 난이도 4</option>
+            <option value="5">★★★★★ 난이도 5</option>
+          </select>
         </div>
         
         <div class="lyrics-header" style="margin-top: 5px;">
@@ -199,7 +211,6 @@
         <input type="text" id="settingIcons" placeholder="상단 아이콘 (예: ♥ ♪ ♥)">
         <input type="text" id="settingTitle" placeholder="메인 제목 입력">
         <textarea id="settingDesc" placeholder="설명 글 입력"></textarea>
-        <!-- ★ 비밀번호 변경 입력칸 추가 ★ -->
         <input type="text" id="settingPassword" placeholder="새 관리자 비밀번호">
         <button class="action-btn" onclick="savePageSettings()">설정 적용하기</button>
       </div>
@@ -239,7 +250,16 @@
       <div class="form-row">
         <input type="text" id="editTitle" placeholder="곡명">
         <input type="text" id="editArtist" placeholder="가수">
-        <input type="text" id="editGenre" placeholder="장르 수정" style="flex: 0.5;">
+      </div>
+      <div class="form-row">
+        <input type="text" id="editGenre" placeholder="장르 수정" style="flex: 1;">
+        <select id="editDifficulty" style="flex: 1;">
+          <option value="1">★ 난이도 1</option>
+          <option value="2">★★ 난이도 2</option>
+          <option value="3">★★★ 난이도 3</option>
+          <option value="4">★★★★ 난이도 4</option>
+          <option value="5">★★★★★ 난이도 5</option>
+        </select>
       </div>
       
       <div class="lyrics-header" style="margin-top: 5px;">
@@ -267,7 +287,7 @@
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
-    password: "12345" // ★ 초기 비밀번호 12345 설정
+    password: "12345"
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
@@ -311,9 +331,7 @@
     pageInfo.bgColor = document.getElementById('settingBgColor').value;
     
     const newPassword = document.getElementById('settingPassword').value.trim();
-    if (newPassword !== "") {
-      pageInfo.password = newPassword;
-    }
+    if (newPassword !== "") { pageInfo.password = newPassword; }
     
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
     renderPageInfo();
@@ -375,6 +393,10 @@
           const artist = row['가수'] || row['아티스트'] || "";
           if (title && artist) {
             const genre = row['장르'] || "기타";
+            let difficulty = parseInt(row['난이도']) || 3;
+            if (difficulty < 1) difficulty = 1;
+            if (difficulty > 5) difficulty = 5;
+
             const lyrics = row['가사'] || "";
             const memoText = row['메모'] || "";
             const memos = memoText ? [{ label: "메모", content: memoText }] : [];
@@ -384,6 +406,7 @@
               title: title.trim(),
               artist: artist.trim(),
               genre: genre.trim(),
+              difficulty: difficulty,
               lyrics: lyrics.trim(),
               memos: memos
             });
@@ -450,10 +473,17 @@
         rightButtons += `<button class="icon-btn" onclick="deleteSong(${song.id})" title="삭제">❌</button>`;
       }
 
+      // 별점 생성 (예: ★★★☆☆)
+      let diffVal = song.difficulty || 3;
+      let stars = "★".repeat(diffVal) + "☆".repeat(5 - diffVal);
+
       li.innerHTML = `
         <div>
           <div class="song-title">${song.title}</div>
           <div class="song-artist">${song.artist}</div>
+          <div class="song-meta">
+            <span class="song-difficulty">${stars}</span>
+          </div>
         </div>
         <div class="right-side">
           ${rightButtons}
@@ -468,13 +498,14 @@
     const artist = document.getElementById("newArtist").value.trim();
     let genre = document.getElementById("newGenre").value.trim();
     if (genre === "") genre = "기타";
+    const difficulty = parseInt(document.getElementById("newDifficulty").value);
 
     const lyrics = document.getElementById("newLyrics").value.trim();
     const memos = getMemosFromContainer("newMemoList");
 
     if (!title || !artist) { alert("곡명과 가수를 입력해주세요!"); return; }
 
-    const newSong = { id: Date.now() + Math.random(), title, artist, genre, lyrics, memos };
+    const newSong = { id: Date.now() + Math.random(), title, artist, genre, difficulty, lyrics, memos };
     songs.unshift(newSong); 
     saveSongsToStorage();
     renderSongs();
@@ -502,6 +533,7 @@
       document.getElementById("editTitle").value = song.title;
       document.getElementById("editArtist").value = song.artist;
       document.getElementById("editGenre").value = song.genre || "기타";
+      document.getElementById("editDifficulty").value = song.difficulty || 3;
       document.getElementById("editLyrics").value = song.lyrics || "";
       
       const editMemoList = document.getElementById("editMemoList");
@@ -523,6 +555,7 @@
     const artist = document.getElementById("editArtist").value.trim();
     let genre = document.getElementById("editGenre").value.trim();
     if (genre === "") genre = "기타";
+    const difficulty = parseInt(document.getElementById("editDifficulty").value);
 
     const lyrics = document.getElementById("editLyrics").value.trim();
     const memos = getMemosFromContainer("editMemoList");
@@ -531,7 +564,7 @@
 
     const songIndex = songs.findIndex(s => s.id === id);
     if (songIndex !== -1) {
-      songs[songIndex] = { id, title, artist, genre, lyrics, memos };
+      songs[songIndex] = { id, title, artist, genre, difficulty, lyrics, memos };
       delete songs[songIndex].memo; 
       saveSongsToStorage();
       renderSongs();

@@ -12,24 +12,33 @@
     --bg: #fff5f7;
     --text: #333;
     --border: #ffd1dc;
+    --bg-img: none;
+    --bg-size: cover;
+    --bg-position: center;
   }
   body {
     font-family: 'Pretendard', -apple-system, sans-serif;
     background-color: var(--bg);
+    background-image: var(--bg-img);
+    background-size: var(--bg-size);
+    background-position: var(--bg-position);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
     color: var(--text);
     margin: 0;
     padding: 20px;
     display: flex;
     justify-content: center;
-    transition: background-color 0.3s ease;
+    transition: background 0.3s ease;
   }
   .container {
     max-width: 600px;
     width: 100%;
-    background: white;
+    background: rgba(255, 255, 255, 0.92); /* 배경 사진이 보일 수 있도록 흰색 박스에 아주 살짝 투명도 부여 */
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(5px);
   }
   
   header { text-align: center; margin-bottom: 25px; }
@@ -55,13 +64,14 @@
   .color-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   input[type="color"] { width: 35px; height: 35px; padding: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
   
-  input[type="text"], input[type="password"], textarea {
+  input[type="text"], input[type="password"], select, textarea {
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
     flex: 1;
     font-family: inherit;
     font-size: 0.9em;
+    background: white;
   }
   textarea { resize: vertical; min-height: 60px; }
   
@@ -76,6 +86,7 @@
   }
   button.action-btn:hover { opacity: 0.8; }
   button.import-btn { background: #555; }
+  button.delete-bg-btn { background: #ff4d4d; margin-top: 5px; }
 
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
   input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
@@ -148,6 +159,38 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
+    <!-- ★ 새로 추가된 배경 사진 및 조절 섹션 ★ -->
+    <div class="admin-section">
+      <h5>🖼️ 배경 이미지 설정</h5>
+      <div class="form-group">
+        <label style="font-size: 0.85em; color: #666;">PNG 또는 JPG 이미지 선택</label>
+        <input type="file" id="bgImageInput" accept="image/*">
+        
+        <div class="form-row" style="margin-top: 5px;">
+          <span style="font-size: 0.9em; color: #555; width: 80px;">크기 방식:</span>
+          <select id="settingBgSize">
+            <option value="cover">화면 꽉 채우기 (Cover)</option>
+            <option value="contain">비율 유지해서 전체 보기 (Contain)</option>
+            <option value="auto">원래 크기 그대로 (Auto)</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <span style="font-size: 0.9em; color: #555; width: 80px;">위치 정렬:</span>
+          <select id="settingBgPosition">
+            <option value="center">가운데 (Center)</option>
+            <option value="top">위쪽 (Top)</option>
+            <option value="bottom">아래쪽 (Bottom)</option>
+            <option value="left">왼쪽 (Left)</option>
+            <option value="right">오른쪽 (Right)</option>
+          </select>
+        </div>
+
+        <button class="action-btn" onclick="saveBackgroundSettings()">배경 설정 적용하기</button>
+        <button class="action-btn delete-bg-btn" onclick="removeBackground()">배경 이미지 삭제 (색상만 쓰기)</button>
+      </div>
+    </div>
+
     <div class="admin-section">
       <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
       <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요.</p>
@@ -198,8 +241,7 @@
         <input type="text" id="settingIcons" placeholder="상단 아이콘 (예: ♥ ♪ ♥)">
         <input type="text" id="settingTitle" placeholder="메인 제목 입력">
         <textarea id="settingDesc" placeholder="설명 글 입력"></textarea>
-        <!-- ★ 비밀번호 변경 입력칸 추가 ★ -->
-        <input type="text" id="settingPassword" placeholder="새 관리자 비밀번호 (기본값: 1234)">
+        <input type="text" id="settingPassword" placeholder="새 관리자 비밀번호">
         <button class="action-btn" onclick="savePageSettings()">설정 적용하기</button>
       </div>
     </div>
@@ -260,14 +302,16 @@
 </div>
 
 <script>
-  // 기본 설정에 초기 비밀번호 "1234"가 포함되어 있습니다.
   const defaultPageInfo = {
     icons: "♥ ♪ ♥",
     title: "나만의 노래책",
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
-    password: "1234" // ★ 초기 비밀번호
+    bgImage: "",
+    bgSize: "cover",
+    bgPosition: "center",
+    password: "1234"
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
@@ -277,8 +321,6 @@
 
   if (isAdmin) {
     const passwordInput = prompt("관리자 비밀번호를 입력하세요\n(초기 비밀번호: 1234):");
-    
-    // 설정된 비밀번호와 입력한 비밀번호가 맞는지 확인합니다.
     if (passwordInput === pageInfo.password) { 
       document.getElementById('adminBox').style.display = 'block';
     } else {
@@ -294,6 +336,14 @@
     
     document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
     document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
+    
+    if (pageInfo.bgImage) {
+      document.documentElement.style.setProperty('--bg-img', `url(${pageInfo.bgImage})`);
+      document.documentElement.style.setProperty('--bg-size', pageInfo.bgSize || "cover");
+      document.documentElement.style.setProperty('--bg-position', pageInfo.bgPosition || "center");
+    } else {
+      document.documentElement.style.setProperty('--bg-img', 'none');
+    }
 
     if (document.getElementById('adminBox').style.display === 'block') {
       document.getElementById('settingIcons').value = pageInfo.icons;
@@ -301,7 +351,9 @@
       document.getElementById('settingDesc').value = pageInfo.desc;
       document.getElementById('settingPrimaryColor').value = pageInfo.primaryColor;
       document.getElementById('settingBgColor').value = pageInfo.bgColor;
-      document.getElementById('settingPassword').value = pageInfo.password; // 비밀번호 칸 채우기
+      document.getElementById('settingPassword').value = pageInfo.password;
+      document.getElementById('settingBgSize').value = pageInfo.bgSize || "cover";
+      document.getElementById('settingBgPosition').value = pageInfo.bgPosition || "center";
     }
   }
 
@@ -312,7 +364,6 @@
     pageInfo.primaryColor = document.getElementById('settingPrimaryColor').value;
     pageInfo.bgColor = document.getElementById('settingBgColor').value;
     
-    // ★ 새로 입력한 비밀번호를 저장합니다 (비워두면 기존 비밀번호 유지)
     const newPassword = document.getElementById('settingPassword').value.trim();
     if (newPassword !== "") {
       pageInfo.password = newPassword;
@@ -321,6 +372,41 @@
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
     renderPageInfo();
     alert("디자인과 설정이 성공적으로 변경되었습니다!");
+  }
+
+  // ★ 배경 이미지 저장 및 크기/위치 조절 함수 ★
+  function saveBackgroundSettings() {
+    const fileInput = document.getElementById('bgImageInput');
+    const file = fileInput.files[0];
+    
+    pageInfo.bgSize = document.getElementById('settingBgSize').value;
+    pageInfo.bgPosition = document.getElementById('settingBgPosition').value;
+
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        pageInfo.bgImage = e.target.result; // 이미지를 코드 내부에 안전한 주소로 변환
+        localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+        renderPageInfo();
+        alert("배경 이미지와 설정이 적용되었습니다! ✨");
+        fileInput.value = "";
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // 이미지를 새로 안 골랐어도 크기/위치 옵션만 바꿨을 때 적용되도록
+      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+      renderPageInfo();
+      alert("배경 정렬 및 크기 설정이 적용되었습니다!");
+    }
+  }
+
+  function removeBackground() {
+    if (confirm("배경 이미지를 삭제하시겠습니까?")) {
+      pageInfo.bgImage = "";
+      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+      renderPageInfo();
+      alert("배경 이미지가 삭제되었습니다.");
+    }
   }
 
   function searchLyricsOnNaver(titleId, artistId) {
@@ -366,21 +452,16 @@
     const fileInput = document.getElementById('csvFileInput');
     const file = fileInput.files[0];
     
-    if (!file) {
-      alert("파일을 먼저 선택해주세요!");
-      return;
-    }
+    if (!file) { alert("파일을 먼저 선택해주세요!"); return; }
 
     Papa.parse(file, {
       header: true, 
       skipEmptyLines: true,
       complete: function(results) {
         let addedCount = 0;
-        
         results.data.forEach(row => {
           const title = row['곡명'] || row['제목'] || "";
           const artist = row['가수'] || row['아티스트'] || "";
-          
           if (title && artist) {
             const genre = row['장르'] || "기타";
             const lyrics = row['가사'] || "";
@@ -398,15 +479,12 @@
             addedCount++;
           }
         });
-        
         saveSongsToStorage();
         renderSongs();
         alert(`성공적으로 ${addedCount}곡이 추가되었습니다! 🎉`);
         fileInput.value = ""; 
       },
-      error: function() {
-        alert("파일을 읽는 중 오류가 발생했습니다.");
-      }
+      error: function() { alert("파일을 읽는 중 오류가 발생했습니다."); }
     });
   }
 

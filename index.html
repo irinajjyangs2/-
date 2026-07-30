@@ -55,7 +55,7 @@
   .color-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
   input[type="color"] { width: 35px; height: 35px; padding: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
   
-  input[type="text"], textarea {
+  input[type="text"], input[type="password"], textarea {
     padding: 10px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -190,7 +190,7 @@
     </div>
 
     <div class="admin-section">
-      <h5>🎨 페이지 디자인 설정</h5>
+      <h5>🎨 페이지 디자인 & 비밀번호 설정</h5>
       <div class="form-group">
         <div class="color-row">
           <label>포인트 색: <input type="color" id="settingPrimaryColor"></label>
@@ -199,7 +199,9 @@
         <input type="text" id="settingIcons" placeholder="상단 아이콘 (예: ♥ ♪ ♥)">
         <input type="text" id="settingTitle" placeholder="메인 제목 입력">
         <textarea id="settingDesc" placeholder="설명 글 입력"></textarea>
-        <button class="action-btn" onclick="savePageSettings()">디자인 적용하기</button>
+        <!-- ★ 비밀번호 변경 입력칸 추가 ★ -->
+        <input type="text" id="settingPassword" placeholder="새 관리자 비밀번호">
+        <button class="action-btn" onclick="savePageSettings()">설정 적용하기</button>
       </div>
     </div>
   </div>
@@ -259,22 +261,29 @@
 </div>
 
 <script>
-  const urlParams = new URLSearchParams(window.location.search);
-  const isAdmin = urlParams.get('admin') === 'true';
-
-  if (isAdmin) {
-    document.getElementById('adminBox').style.display = 'block';
-  }
-
   const defaultPageInfo = {
     icons: "♥ ♪ ♥",
     title: "나만의 노래책",
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
-    bgColor: "#fff5f7"
+    bgColor: "#fff5f7",
+    password: "12345" // ★ 초기 비밀번호 12345 설정
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const isAdmin = urlParams.get('admin') === 'true';
+
+  if (isAdmin) {
+    const passwordInput = prompt("관리자 비밀번호를 입력하세요\n(초기 비밀번호: 12345):");
+    if (passwordInput === pageInfo.password) { 
+      document.getElementById('adminBox').style.display = 'block';
+    } else {
+      alert("비밀번호가 틀렸습니다! 일반 시청자 모드로 접속합니다.");
+      window.location.href = window.location.pathname; 
+    }
+  }
 
   function renderPageInfo() {
     document.getElementById('pageIconsDisplay').textContent = pageInfo.icons;
@@ -284,12 +293,13 @@
     document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
     document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
 
-    if (isAdmin) {
+    if (document.getElementById('adminBox').style.display === 'block') {
       document.getElementById('settingIcons').value = pageInfo.icons;
       document.getElementById('settingTitle').value = pageInfo.title;
       document.getElementById('settingDesc').value = pageInfo.desc;
       document.getElementById('settingPrimaryColor').value = pageInfo.primaryColor;
       document.getElementById('settingBgColor').value = pageInfo.bgColor;
+      document.getElementById('settingPassword').value = pageInfo.password;
     }
   }
 
@@ -299,6 +309,11 @@
     pageInfo.desc = document.getElementById('settingDesc').value.trim();
     pageInfo.primaryColor = document.getElementById('settingPrimaryColor').value;
     pageInfo.bgColor = document.getElementById('settingBgColor').value;
+    
+    const newPassword = document.getElementById('settingPassword').value.trim();
+    if (newPassword !== "") {
+      pageInfo.password = newPassword;
+    }
     
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
     renderPageInfo();
@@ -430,7 +445,7 @@
         rightButtons += `<button class="btn-small btn-lyrics" onclick="openLyrics(${song.id})">가사/메모</button>`;
       }
       
-      if (isAdmin) {
+      if (document.getElementById('adminBox').style.display === 'block') {
         rightButtons += `<button class="icon-btn" onclick="openEditModal(${song.id})" title="수정">✏️</button>`;
         rightButtons += `<button class="icon-btn" onclick="deleteSong(${song.id})" title="삭제">❌</button>`;
       }
@@ -495,7 +510,7 @@
       let existingMemos = song.memos || [];
       if (song.memo && existingMemos.length === 0) { existingMemos = [{ label: "메모", content: song.memo }]; }
       if (existingMemos.length > 0) {
-        existingMenses.forEach(m => addMemoRow("editMemoList", m.label, m.content));
+        existingMemos.forEach(m => addMemoRow("editMemoList", m.label, m.content));
       } else { addMemoRow("editMemoList"); }
 
       document.getElementById("editModal").style.display = "flex";

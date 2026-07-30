@@ -13,58 +13,23 @@
     --text: #333;
     --border: #ffd1dc;
   }
-  html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-  }
   body {
     font-family: 'Pretendard', -apple-system, sans-serif;
     background-color: var(--bg);
     color: var(--text);
+    margin: 0;
+    padding: 20px;
     display: flex;
     justify-content: center;
-    align-items: flex-start;
-    padding: 20px;
-    box-sizing: border-box;
-    position: relative;
     transition: background-color 0.3s ease;
   }
-  
-  #bgImageLayer {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    pointer-events: none;
-    z-index: 1;
-  }
-  .bg-img-element {
-    position: absolute;
-    background-repeat: no-repeat;
-    background-size: contain;
-    background-position: center;
-    transform: translate(-50%, -50%);
-  }
-
-  .bg-img-element.active-editing {
-    outline: 3px dashed #00ffd5 !important;
-    background-color: rgba(0, 255, 213, 0.15) !important;
-  }
-
   .container {
     max-width: 600px;
     width: 100%;
-    background: rgba(255, 255, 255, 0.92);
+    background: white;
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
-    backdrop-filter: blur(5px);
-    position: relative;
-    z-index: 10;
-    margin-bottom: 40px;
   }
   
   header { text-align: center; margin-bottom: 25px; }
@@ -112,26 +77,6 @@
   }
   button.action-btn:hover { opacity: 0.8; }
   button.import-btn { background: #555; }
-  button.delete-bg-btn { background: #ff4d4d; margin-top: 5px; }
-  
-  .btn-select-bg { background: #6c757d; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
-  .btn-select-bg.active { background: #28a745; }
-  .btn-delete-bg-slot { background: #ff4d4d; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
-
-  .bg-slots-container {
-    max-height: 250px;
-    overflow-y: auto;
-    padding-right: 5px;
-    margin-bottom: 10px;
-  }
-  .bg-slot-box {
-    background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee;
-  }
-  .bg-slot-box h6 { margin: 0 0 6px 0; color: #444; font-size: 0.9em; }
-
-  #joystickNotice {
-    display: none; background: #e2f0d9; border: 1px solid #c8e6c9; padding: 10px; border-radius: 8px; font-size: 0.85em; color: #2e7d32; margin-bottom: 10px; text-align: center; font-weight: bold;
-  }
 
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
   input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
@@ -202,9 +147,6 @@
 </style>
 </head>
 <body>
-
-<div id="bgImageLayer"></div>
-
 <div class="container">
   <header>
     <div class="icons" id="pageIconsDisplay">♥ ♪ ♥</div>
@@ -215,21 +157,6 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
-    <div class="admin-section">
-      <div class="lyrics-header">
-        <h5>🖼️ 배경 이미지 추가 및 위치 조절</h5>
-        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', '50vw 50vh')">➕ 사진 칸 추가</button>
-      </div>
-      <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'위치 조절(선택)' 누르면 화면에 민트색 외곽선이 떠서 위치를 쉽게 찾을 수 있습니다!</p>
-      
-      <div id="joystickNotice">🎮 [배경 사진 X번 조종 중] 방향키로 이동 중입니다! (Shift 누르면 10px씩)</div>
-
-      <div class="bg-slots-container" id="bgSlotsContainer"></div>
-
-      <button class="action-btn" onclick="saveBackgroundSettings()">배경 설정 적용하기</button>
-      <button class="action-btn delete-bg-btn" onclick="removeBackgroundAll()">모든 배경 사진 초기화</button>
-    </div>
-
     <div class="admin-section">
       <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
       <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요. (앨범 자켓 자동 연동!)</p>
@@ -365,227 +292,10 @@
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
-    backgrounds: [],
     password: "12345"
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
-  if (!pageInfo.backgrounds) pageInfo.backgrounds = [];
-
-  let activeBgIndex = null;
-  let bgImagesData = [];
-
-  // IndexedDB 설정
-  let db;
-  const dbRequest = indexedDB.open("StreamerSongBookDB", 1);
-  dbRequest.onupgradeneeded = function(e) {
-    db = e.target.result;
-    if (!db.objectStoreNames.contains("images")) {
-      db.createObjectStore("images");
-    }
-  };
-  dbRequest.onsuccess = function(e) {
-    db = e.target.result;
-    loadAllImagesFromDB();
-  };
-
-  function saveImageToDB(index, blobOrUrl, callback) {
-    if (!db) { if(callback) callback(); return; }
-    const tx = db.transaction("images", "readwrite");
-    const store = tx.objectStore("images");
-    store.put(blobOrUrl, `bg_${index}`);
-    tx.oncomplete = function() { if(callback) callback(); };
-  }
-
-  function loadImageFromDB(index, callback) {
-    if (!db) { callback(null); return; }
-    const tx = db.transaction("images", "readonly");
-    const store = tx.objectStore("images");
-    const req = store.get(`bg_${index}`);
-    req.onsuccess = function() { callback(req.result || null); };
-    req.onerror = function() { callback(null); };
-  }
-
-  function removeImageFromDB(index, callback) {
-    if (!db) { if(callback) callback(); return; }
-    const tx = db.transaction("images", "readwrite");
-    const store = tx.objectStore("images");
-    store.delete(`bg_${index}`);
-    tx.oncomplete = function() { if(callback) callback(); };
-  }
-
-  function loadAllImagesFromDB() {
-    bgImagesData = [];
-    let loadedCount = 0;
-    if (pageInfo.backgrounds.length === 0) {
-      renderPageInfo();
-      renderBgSlotsHTML();
-      return;
-    }
-    pageInfo.backgrounds.forEach((bg, i) => {
-      loadImageFromDB(i, (imgData) => {
-        bgImagesData[i] = imgData;
-        loadedCount++;
-        if (loadedCount === pageInfo.backgrounds.length) {
-          renderPageInfo();
-          renderBgSlotsHTML();
-        }
-      });
-    });
-  }
-
-  function renderBgSlotsHTML() {
-    const container = document.getElementById('bgSlotsContainer');
-    if (!container) return;
-    
-    if (pageInfo.backgrounds.length === 0) {
-      container.innerHTML = `<p style="text-align:center; color:#888; font-size:0.9em; margin:10px 0;">등록된 배경 사진이 없습니다. 위 버튼을 눌러 추가해보세요!</p>`;
-      return;
-    }
-
-    let html = "";
-    pageInfo.backgrounds.forEach((bg, i) => {
-      let isSelected = activeBgIndex === i;
-      let hasImg = bgImagesData[i] ? '✨(등록됨)' : '';
-      html += `
-        <div class="bg-slot-box" style="border: ${isSelected ? '2px solid #28a745' : '1px solid #eee'};">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <h6 style="margin: 0;">배경 사진 ${i+1} ${hasImg}</h6>
-            <div style="display:flex; gap:5px;">
-              <button type="button" class="btn-select-bg ${isSelected ? 'active' : ''}" onclick="selectBgForJoystick(${i})">${isSelected ? '🎮 조종 중(선택됨)' : '🎯 위치 조절(선택)'}</button>
-              <button type="button" class="btn-delete-bg-slot" onclick="removeSingleBackground(${i})">🗑️ 삭제</button>
-            </div>
-          </div>
-          <input type="file" id="bgInput_${i}" accept="image/*" style="margin-bottom: 5px; width: 100%; box-sizing: border-box;">
-          <div class="form-row">
-            <input type="text" id="bgSize_${i}" placeholder="크기 (예: 300px)" value="${bg.size || '300px'}">
-            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 50vw 50vh)" value="${bg.position || '50vw 50vh'}">
-          </div>
-        </div>
-      `;
-    });
-    container.innerHTML = html;
-
-    const notice = document.getElementById('joystickNotice');
-    if (activeBgIndex !== null && activeBgIndex < pageInfo.backgrounds.length) {
-      notice.style.display = 'block';
-      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 민트색 외곽선이 표시된 사진을 방향키로 이동 중입니다! (Shift 누르면 10px씩)`;
-    } else {
-      notice.style.display = 'none';
-      activeBgIndex = null;
-    }
-  }
-
-  function addBgSlot(size = "300px", position = "50vw 50vh") {
-    syncInputsToData();
-    pageInfo.backgrounds.push({ size, position });
-    bgImagesData.push(null);
-    renderBgSlotsHTML();
-    renderPageInfo();
-  }
-
-  function removeSingleBackground(index) {
-    syncInputsToData();
-    pageInfo.backgrounds.splice(index, 1);
-    bgImagesData.splice(index, 1);
-    removeImageFromDB(index, () => {
-      let tempBg = [...pageInfo.backgrounds];
-      let tempImg = [...bgImagesData];
-      removeBackgroundAllSilent(() => {
-        pageInfo.backgrounds = tempBg;
-        bgImagesData = tempImg;
-        tempBg.forEach((_, idx) => {
-          if(tempImg[idx]) saveImageToDB(idx, tempImg[idx]);
-        });
-        localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-        if (activeBgIndex === index) activeBgIndex = null;
-        else if (activeBgIndex > index) activeBgIndex--;
-        renderBgSlotsHTML();
-        renderPageInfo();
-      });
-    });
-  }
-
-  function removeBackgroundAllSilent(callback) {
-    if (!db) { if(callback) callback(); return; }
-    const tx = db.transaction("images", "readwrite");
-    const store = tx.objectStore("images");
-    store.clear();
-    tx.oncomplete = function() { if(callback) callback(); };
-  }
-
-  function removeBackgroundAll() {
-    if (confirm("모든 배경 사진을 초기화하시겠습니까?")) {
-      pageInfo.backgrounds = [];
-      bgImagesData = [];
-      activeBgIndex = null;
-      removeBackgroundAllSilent(() => {
-        localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-        renderPageInfo();
-        renderBgSlotsHTML();
-        alert("모든 배경 사진이 초기화되었습니다.");
-      });
-    }
-  }
-
-  function selectBgForJoystick(index) {
-    syncInputsToData();
-    if (activeBgIndex === index) {
-      activeBgIndex = null;
-    } else {
-      activeBgIndex = index;
-    }
-    renderBgSlotsHTML();
-    renderPageInfo();
-  }
-
-  function syncInputsToData() {
-    pageInfo.backgrounds.forEach((bg, i) => {
-      const sizeInput = document.getElementById(`bgSize_${i}`);
-      const posInput = document.getElementById(`bgPos_${i}`);
-      if (sizeInput) bg.size = sizeInput.value.trim() || "300px";
-      if (posInput) bg.position = posInput.value.trim() || "50vw 50vh";
-    });
-  }
-
-  window.addEventListener('keydown', function(e) {
-    if (activeBgIndex === null || document.getElementById('adminBox').style.display !== 'block') return;
-    
-    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-      } else {
-        return; 
-      }
-    }
-
-    const bg = pageInfo.backgrounds[activeBgIndex];
-    if (!bg) return;
-
-    let step = e.shiftKey ? 10 : 1;
-    let posParts = bg.position ? bg.position.split(' ') : ['50vw', '50vh'];
-    let xStr = posParts[0] || '50vw';
-    let yStr = posParts[1] || '50vh';
-
-    let getPx = (str) => {
-      let num = parseInt(str);
-      return isNaN(num) ? 0 : num;
-    };
-
-    let x = getPx(xStr);
-    let y = getPx(yStr);
-
-    if (e.key === 'ArrowLeft') x -= step;
-    if (e.key === 'ArrowRight') x += step;
-    if (e.key === 'ArrowUp') y -= step;
-    if (e.key === 'ArrowDown') y += step;
-
-    bg.position = `${x}px ${y}px`;
-    
-    renderPageInfo();
-    const posInput = document.getElementById(`bgPos_${activeBgIndex}`);
-    if (posInput) posInput.value = bg.position;
-  });
 
   const urlParams = new URLSearchParams(window.location.search);
   const isAdmin = urlParams.get('admin') === 'true';
@@ -607,33 +317,6 @@
     
     document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
     document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
-    
-    const bgLayer = document.getElementById('bgImageLayer');
-    let layerHtml = "";
-
-    pageInfo.backgrounds.forEach((bg, i) => {
-      let imgSource = bgImagesData[i];
-      if (imgSource) {
-        let imageUrl = (typeof imgSource === 'string') ? imgSource : URL.createObjectURL(imgSource);
-        let posParts = (bg.position || '50vw 50vh').split(' ');
-        let leftVal = posParts[0] || '50vw';
-        let topVal = posParts[1] || '50vh';
-        let sizeVal = bg.size || '300px';
-
-        let isActiveEditing = (isAdmin && activeBgIndex === i) ? 'active-editing' : '';
-
-        layerHtml += `
-          <div class="bg-img-element ${isActiveEditing}" style="
-            background-image: url(${imageUrl});
-            width: ${sizeVal};
-            height: ${sizeVal};
-            left: ${leftVal};
-            top: ${topVal};
-          "></div>
-        `;
-      }
-    });
-    bgLayer.innerHTML = layerHtml;
 
     if (document.getElementById('adminBox').style.display === 'block') {
       document.getElementById('settingIcons').value = pageInfo.icons;
@@ -658,42 +341,6 @@
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
     renderPageInfo();
     alert("디자인과 설정이 성공적으로 변경되었습니다!");
-  }
-
-  function saveBackgroundSettings(silent = false) {
-    syncInputsToData();
-
-    let filesToProcess = [];
-    pageInfo.backgrounds.forEach((bg, i) => {
-      const fileInput = document.getElementById(`bgInput_${i}`);
-      if (fileInput && fileInput.files[0]) {
-        filesToProcess.push({ index: i, file: fileInput.files[0] });
-      }
-    });
-
-    if (filesToProcess.length === 0) {
-      activeBgIndex = null;
-      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-      renderPageInfo();
-      renderBgSlotsHTML();
-      if (!silent) alert("배경 설정이 적용되어 가이드 선이 사라졌습니다! ✨");
-      return;
-    }
-
-    let processedCount = 0;
-    filesToProcess.forEach(item => {
-      bgImagesData[item.index] = item.file;
-      saveImageToDB(item.index, item.file, () => {
-        processedCount++;
-        if (processedCount === filesToProcess.length) {
-          activeBgIndex = null;
-          localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-          renderPageInfo();
-          renderBgSlotsHTML();
-          if (!silent) alert("모든 배경 사진과 설정이 성공적으로 적용되었습니다! ✨");
-        }
-      });
-    });
   }
 
   function searchLyricsOnNaver(titleId, artistId) {
@@ -735,14 +382,12 @@
     localStorage.setItem("mySongs", JSON.stringify(songs));
   }
 
-  // ★ 애플뮤직 API를 통해 앨범 자켓 이미지 자동 검색 함수 ★
   async function fetchAlbumArt(title, artist) {
     try {
       const query = encodeURIComponent(`${artist} ${title}`);
       const response = await fetch(`https://itunes.apple.com/search?term=${query}&entity=song&limit=1`);
       const data = await response.json();
       if (data.results && data.results.length > 0) {
-        // 100x100 화질을 300x300 고화질로 변환
         let artUrl = data.results[0].artworkUrl100;
         if (artUrl) {
           return artUrl.replace('100x100bb', '300x300bb');
@@ -751,7 +396,7 @@
     } catch (e) {
       console.error("앨범 자켓 검색 실패:", e);
     }
-    return ""; // 못 찾으면 빈 문자열
+    return "";
   }
 
   async function importCSV() {
@@ -777,7 +422,6 @@
             const memoText = row['메모'] || "";
             const memos = memoText ? [{ label: "메모", content: memoText }] : [];
 
-            // 앨범 자켓 자동 검색
             const albumArtUrl = await fetchAlbumArt(title, artist);
 
             songs.unshift({
@@ -848,7 +492,7 @@
         rightButtons += `<button class="btn-small btn-lyrics" onclick="openLyrics(${song.id})">가사/메모</button>`;
       }
       
-      if (document.getElementById('adminBox').style.display === 'block') {
+      if (isAdmin) {
         rightButtons += `<button class="icon-btn" onclick="openEditModal(${song.id})" title="수정">✏️</button>`;
         rightButtons += `<button class="icon-btn" onclick="deleteSong(${song.id})" title="삭제">❌</button>`;
       }
@@ -856,7 +500,6 @@
       let diffVal = song.difficulty || 3;
       let stars = "★".repeat(diffVal) + "☆".repeat(5 - diffVal);
 
-      // 앨범 자켓 이미지 태그 (없으면 기본 음표 아이콘 대체)
       let artImgHtml = song.albumArt 
         ? `<img src="${song.albumArt}" class="album-art" alt="앨범아트">` 
         : `<div class="album-art" style="display:flex; justify-content:center; align-items:center; font-size:1.2em; color:#aaa;">♪</div>`;
@@ -892,7 +535,6 @@
 
     if (!title || !artist) { alert("곡명과 가수를 입력해주세요!"); return; }
 
-    // 앨범 자켓 자동 검색
     const albumArtUrl = await fetchAlbumArt(title, artist);
 
     const newSong = { id: Date.now() + Math.random(), title, artist, genre, difficulty, lyrics, memos, albumArt: albumArtUrl };
@@ -954,7 +596,6 @@
 
     const songIndex = songs.findIndex(s => s.id === id);
     if (songIndex !== -1) {
-      // 곡명이나 가수가 바뀌었을 수 있으니 앨범 아트 재검색
       const oldSong = songs[songIndex];
       let albumArtUrl = oldSong.albumArt || "";
       if (!albumArtUrl || oldSong.title !== title || oldSong.artist !== artist) {

@@ -32,7 +32,7 @@
     transition: background-color 0.3s ease;
   }
   
-  /* ★ 화면 전체를 덮는 고정 배경 레이어 ★ */
+  /* 배경 이미지 렌더링 레이어 */
   #bgImageLayer {
     position: fixed;
     top: 0;
@@ -47,7 +47,7 @@
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center;
-    transform: translate(-50%, -50%); /* 정확한 중앙 좌표 정렬 */
+    transform: translate(-50%, -50%);
   }
 
   /* 선택된 사진에만 민트색 외곽선 표시 */
@@ -365,7 +365,7 @@
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
-    backgrounds: [],
+    backgrounds: [], // { size, position } 정보만 저장
     password: "12345"
   };
   
@@ -373,6 +373,70 @@
   if (!pageInfo.backgrounds) pageInfo.backgrounds = [];
 
   let activeBgIndex = null;
+  let bgImagesData = []; // 실제 이미지 블롭(Blob) 데이터를 담는 배열
+
+  // ★ 대용량 이미지 안전 저장을 위한 IndexedDB 설정 ★
+  let db;
+  const dbRequest = indexedDB.open("StreamerSongBookDB", 1);
+  dbRequest.onupgradeneeded = function(e) {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("images")) {
+      db.createObjectStore("images");
+    }
+  };
+  dbRequest.onsuccess = function(e) {
+    db = e.target.result;
+    loadAllImagesFromDB();
+  };
+
+  function saveImageToDB(index, blobOrUrl, callback) {
+    if (!db) { if(callback) callback(); return; }
+    const tx = db.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+    store.put(blobOrUrl, `bg_${index}`);
+    tx.oncomplete = function() { if(callback) callback(); };
+  }
+
+  function loadImageFromDB(index, callback) {
+    if (!db) { callback(null); return; }
+    const tx = db.transaction("images", "readonly");
+    const store = tx.objectStore("images");
+    const req = store.get(`bg_${index}`);
+    req.onsuccess = function() {
+      callback(req.result || null);
+    };
+    req.onerror = function() {
+      callback(null);
+    };
+  }
+
+  function removeImageFromDB(index, callback) {
+    if (!db) { if(callback) callback(); return; }
+    const tx = db.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+    store.delete(`bg_${index}`);
+    tx.oncomplete = function() { if(callback) callback(); };
+  }
+
+  function loadAllImagesFromDB() {
+    bgImagesData = [];
+    let loadedCount = 0;
+    if (pageInfo.backgrounds.length === 0) {
+      renderPageInfo();
+      renderBgSlotsHTML();
+      return;
+    }
+    pageInfo.backgrounds.forEach((bg, i) => {
+      loadImageFromDB(i, (imgData) => {
+        bgImagesData[i] = imgData;
+        loadedCount++;
+        if (loadedCount === pageInfo.backgrounds.length) {
+          renderPageInfo();
+          renderBgSlotsHTML();
+        }
+      });
+    });
+  }
 
   function renderBgSlotsHTML() {
     const container = document.getElementById('bgSlotsContainer');
@@ -386,10 +450,11 @@
     let html = "";
     pageInfo.backgrounds.forEach((bg, i) => {
       let isSelected = activeBgIndex === i;
+      let hasImg = bgImagesData[i] ? '✨(등록됨)' : '';
       html += `
         <div class="bg-slot-box" style="border: ${isSelected ? '2px solid #28a745' : '1px solid #eee'};">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <h6 style="margin: 0;">배경 사진 ${i+1} ${bg.image ? '✨(등록됨)' : ''}</h6>
+            <h6 style="margin: 0;">배경 사진 ${i+1} ${hasImg}</h6>
             <div style="display:flex; gap:5px;">
               <button type="button" class="btn-select-bg ${isSelected ? 'active' : ''}" onclick="selectBgForJoystick(${i})">${isSelected ? '🎮 조종 중(선택됨)' : '🎯 위치 조절(선택)'}</button>
               <button type="button" class="btn-delete-bg-slot" onclick="removeSingleBackground(${i})">🗑️ 삭제</button>
@@ -415,9 +480,10 @@
     }
   }
 
-  function addBgSlot(image = "", size = "300px", position = "50vw 50vh") {
+  function addBgSlot(size = "300px", position = "50vw 50vh") {
     syncInputsToData();
-    pageInfo.backgrounds.push({ image, size, position });
+    pageInfo.backgrounds.push({ size, position });
+    bgImagesData.push(null);
     renderBgSlotsHTML();
     renderPageInfo();
   }
@@ -425,20 +491,45 @@
   function removeSingleBackground(index) {
     syncInputsToData();
     pageInfo.backgrounds.splice(index, 1);
-    if (activeBgIndex === index) activeBgIndex = null;
-    else if (activeBgIndex > index) activeBgIndex--;
-    renderBgSlotsHTML();
-    saveBackgroundSettings(true);
+    bgImagesData.splice(index, 1);
+    removeImageFromDB(index, () => {
+      // 인덱스 재정렬 동기화
+      let tempBg = [...pageInfo.backgrounds];
+      let tempImg = [...bgImagesData];
+      removeBackgroundAllSilent(() => {
+        pageInfo.backgrounds = tempBg;
+        bgImagesData = tempImg;
+        tempBg.forEach((_, idx) => {
+          if(tempImg[idx]) saveImageToDB(idx, tempImg[idx]);
+        });
+        localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+        if (activeBgIndex === index) activeBgIndex = null;
+        else if (activeBgIndex > index) activeBgIndex--;
+        renderBgSlotsHTML();
+        renderPageInfo();
+      });
+    });
+  }
+
+  function removeBackgroundAllSilent(callback) {
+    if (!db) { if(callback) callback(); return; }
+    const tx = db.transaction("images", "readwrite");
+    const store = tx.objectStore("images");
+    store.clear();
+    tx.oncomplete = function() { if(callback) callback(); };
   }
 
   function removeBackgroundAll() {
     if (confirm("모든 배경 사진을 초기화하시겠습니까?")) {
       pageInfo.backgrounds = [];
+      bgImagesData = [];
       activeBgIndex = null;
-      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-      renderPageInfo();
-      renderBgSlotsHTML();
-      alert("모든 배경 사진이 초기화되었습니다.");
+      removeBackgroundAllSilent(() => {
+        localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+        renderPageInfo();
+        renderBgSlotsHTML();
+        alert("모든 배경 사진이 초기화되었습니다.");
+      });
     }
   }
 
@@ -508,7 +599,6 @@
     const passwordInput = prompt("관리자 비밀번호를 입력하세요\n(초기 비밀번호: 12345):");
     if (passwordInput === pageInfo.password) { 
       document.getElementById('adminBox').style.display = 'block';
-      renderBgSlotsHTML();
     } else {
       alert("비밀번호가 틀렸습니다! 일반 시청자 모드로 접속합니다.");
       window.location.href = window.location.pathname; 
@@ -527,7 +617,9 @@
     let layerHtml = "";
 
     pageInfo.backgrounds.forEach((bg, i) => {
-      if (bg.image) {
+      let imgSource = bgImagesData[i];
+      if (imgSource) {
+        let imageUrl = (typeof imgSource === 'string') ? imgSource : URL.createObjectURL(imgSource);
         let posParts = (bg.position || '50vw 50vh').split(' ');
         let leftVal = posParts[0] || '50vw';
         let topVal = posParts[1] || '50vh';
@@ -537,7 +629,7 @@
 
         layerHtml += `
           <div class="bg-img-element ${isActiveEditing}" style="
-            background-image: url(${bg.image});
+            background-image: url(${imageUrl});
             width: ${sizeVal};
             height: ${sizeVal};
             left: ${leftVal};
@@ -576,15 +668,15 @@
   function saveBackgroundSettings(silent = false) {
     syncInputsToData();
 
-    let filesToLoad = [];
+    let filesToProcess = [];
     pageInfo.backgrounds.forEach((bg, i) => {
       const fileInput = document.getElementById(`bgInput_${i}`);
       if (fileInput && fileInput.files[0]) {
-        filesToLoad.push({ index: i, file: fileInput.files[0] });
+        filesToProcess.push({ index: i, file: fileInput.files[0] });
       }
     });
 
-    if (filesToLoad.length === 0) {
+    if (filesToProcess.length === 0) {
       activeBgIndex = null;
       localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
       renderPageInfo();
@@ -593,21 +685,19 @@
       return;
     }
 
-    let loadedCount = 0;
-    filesToLoad.forEach(item => {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        pageInfo.backgrounds[item.index].image = e.target.result;
-        loadedCount++;
-        if (loadedCount === filesToLoad.length) {
+    let processedCount = 0;
+    filesToProcess.forEach(item => {
+      bgImagesData[item.index] = item.file;
+      saveImageToDB(item.index, item.file, () => {
+        processedCount++;
+        if (processedCount === filesToProcess.length) {
           activeBgIndex = null;
           localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
           renderPageInfo();
           renderBgSlotsHTML();
           if (!silent) alert("모든 배경 사진과 설정이 성공적으로 적용되었습니다! ✨");
         }
-      };
-      reader.readAsDataURL(item.file);
+      });
     });
   }
 
@@ -861,7 +951,7 @@
           let linkedContent = safeContent.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--primary); text-decoration:underline;">$1</a>');
           const memoDiv = document.createElement("div");
           memoDiv.className = "modal-memo-item";
-          memoDiv.innerHTML = `<strong>💡 ${m.label}:` + `</strong> ${linkedContent}`;
+          memoDiv.innerHTML = `<strong>💡 ${m.label}:</strong> ${linkedContent}`;
           memoEl.appendChild(memoDiv);
         });
         memoEl.style.display = "block";

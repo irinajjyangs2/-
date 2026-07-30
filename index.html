@@ -13,21 +13,26 @@
     --text: #333;
     --border: #ffd1dc;
   }
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
   body {
     font-family: 'Pretendard', -apple-system, sans-serif;
     background-color: var(--bg);
     color: var(--text);
-    margin: 0;
-    padding: 20px;
     display: flex;
     justify-content: center;
-    transition: background-color 0.3s ease;
-    position: relative;
-    min-height: 100vh;
+    align-items: flex-start;
+    padding: 20px;
     box-sizing: border-box;
+    position: relative;
+    transition: background-color 0.3s ease;
   }
   
-  /* 배경 이미지 렌더링 레이어 */
+  /* ★ 화면 전체를 덮는 고정 배경 레이어 ★ */
   #bgImageLayer {
     position: fixed;
     top: 0;
@@ -36,16 +41,16 @@
     height: 100vh;
     pointer-events: none;
     z-index: 1;
-    overflow: hidden;
   }
   .bg-img-element {
     position: absolute;
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center;
+    transform: translate(-50%, -50%); /* 정확한 중앙 좌표 정렬 */
   }
 
-  /* ★ 관리자 모드에서 선택된 사진에만 민트색 외곽선과 반투명 가이드 표시 ★ */
+  /* 선택된 사진에만 민트색 외곽선 표시 */
   .bg-img-element.active-editing {
     outline: 3px dashed #00ffd5 !important;
     background-color: rgba(0, 255, 213, 0.15) !important;
@@ -61,6 +66,7 @@
     backdrop-filter: blur(5px);
     position: relative;
     z-index: 10;
+    margin-bottom: 40px;
   }
   
   header { text-align: center; margin-bottom: 25px; }
@@ -210,7 +216,7 @@
     <div class="admin-section">
       <div class="lyrics-header">
         <h5>🖼️ 배경 이미지 추가 및 위치 조절</h5>
-        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', '50px 50px')">➕ 사진 칸 추가</button>
+        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', '50vw 50vh')">➕ 사진 칸 추가</button>
       </div>
       <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'위치 조절(선택)' 누르면 화면에 민트색 외곽선이 떠서 위치를 쉽게 찾을 수 있습니다!</p>
       
@@ -392,7 +398,7 @@
           <input type="file" id="bgInput_${i}" accept="image/*" style="margin-bottom: 5px; width: 100%; box-sizing: border-box;">
           <div class="form-row">
             <input type="text" id="bgSize_${i}" placeholder="크기 (예: 300px)" value="${bg.size || '300px'}">
-            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 50px 50px)" value="${bg.position || '50px 50px'}">
+            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 50vw 50vh)" value="${bg.position || '50vw 50vh'}">
           </div>
         </div>
       `;
@@ -409,7 +415,7 @@
     }
   }
 
-  function addBgSlot(image = "", size = "300px", position = "50px 50px") {
+  function addBgSlot(image = "", size = "300px", position = "50vw 50vh") {
     syncInputsToData();
     pageInfo.backgrounds.push({ image, size, position });
     renderBgSlotsHTML();
@@ -444,7 +450,7 @@
       activeBgIndex = index;
     }
     renderBgSlotsHTML();
-    renderPageInfo(); // 외곽선 표시를 위해 실시간 렌더링
+    renderPageInfo();
   }
 
   function syncInputsToData() {
@@ -452,7 +458,7 @@
       const sizeInput = document.getElementById(`bgSize_${i}`);
       const posInput = document.getElementById(`bgPos_${i}`);
       if (sizeInput) bg.size = sizeInput.value.trim() || "300px";
-      if (posInput) bg.position = posInput.value.trim() || "50px 50px";
+      if (posInput) bg.position = posInput.value.trim() || "50vw 50vh";
     });
   }
 
@@ -471,9 +477,9 @@
     if (!bg) return;
 
     let step = e.shiftKey ? 10 : 1;
-    let posParts = bg.position ? bg.position.split(' ') : ['50px', '50px'];
-    let xStr = posParts[0] || '50px';
-    let yStr = posParts[1] || '50px';
+    let posParts = bg.position ? bg.position.split(' ') : ['50vw', '50vh'];
+    let xStr = posParts[0] || '50vw';
+    let yStr = posParts[1] || '50vh';
 
     let getPx = (str) => {
       let num = parseInt(str);
@@ -522,12 +528,11 @@
 
     pageInfo.backgrounds.forEach((bg, i) => {
       if (bg.image) {
-        let posParts = (bg.position || '50px 50px').split(' ');
-        let leftVal = posParts[0] || '50px';
-        let topVal = posParts[1] || '50px';
+        let posParts = (bg.position || '50vw 50vh').split(' ');
+        let leftVal = posParts[0] || '50vw';
+        let topVal = posParts[1] || '50vh';
         let sizeVal = bg.size || '300px';
 
-        // 현재 선택된 사진일 경우에만 민트색 외곽선 클래스 부여
         let isActiveEditing = (isAdmin && activeBgIndex === i) ? 'active-editing' : '';
 
         layerHtml += `
@@ -580,7 +585,7 @@
     });
 
     if (filesToLoad.length === 0) {
-      activeBgIndex = null; // 저장 완료 시 선택 해제 -> 민트색 외곽선 자동 삭제
+      activeBgIndex = null;
       localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
       renderPageInfo();
       renderBgSlotsHTML();
@@ -595,7 +600,7 @@
         pageInfo.backgrounds[item.index].image = e.target.result;
         loadedCount++;
         if (loadedCount === filesToLoad.length) {
-          activeBgIndex = null; // 저장 완료 시 선택 해제 -> 민트색 외곽선 자동 삭제
+          activeBgIndex = null;
           localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
           renderPageInfo();
           renderBgSlotsHTML();
@@ -856,7 +861,7 @@
           let linkedContent = safeContent.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:var(--primary); text-decoration:underline;">$1</a>');
           const memoDiv = document.createElement("div");
           memoDiv.className = "modal-memo-item";
-          memoDiv.innerHTML = `<strong>💡 ${m.label}:</strong> ${linkedContent}`;
+          memoDiv.innerHTML = `<strong>💡 ${m.label}:` + `</strong> ${linkedContent}`;
           memoEl.appendChild(memoDiv);
         });
         memoEl.style.display = "block";

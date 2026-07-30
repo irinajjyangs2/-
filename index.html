@@ -27,7 +27,7 @@
     box-sizing: border-box;
   }
   
-  /* ★ 배경 이미지를 확실하게 눈에 보이도록 그려주는 레이어 ★ */
+  /* 배경 이미지 렌더링 레이어 */
   #bgImageLayer {
     position: fixed;
     top: 0;
@@ -43,6 +43,12 @@
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center;
+  }
+
+  /* ★ 관리자 모드에서 선택된 사진에만 민트색 외곽선과 반투명 가이드 표시 ★ */
+  .bg-img-element.active-editing {
+    outline: 3px dashed #00ffd5 !important;
+    background-color: rgba(0, 255, 213, 0.15) !important;
   }
 
   .container {
@@ -206,9 +212,9 @@
         <h5>🖼️ 배경 이미지 추가 및 위치 조절</h5>
         <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', '50px 50px')">➕ 사진 칸 추가</button>
       </div>
-      <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'위치 조절(선택)' 누르고 방향키(← → ↑ ↓)로 미세 조절 가능!</p>
+      <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'위치 조절(선택)' 누르면 화면에 민트색 외곽선이 떠서 위치를 쉽게 찾을 수 있습니다!</p>
       
-      <div id="joystickNotice">🎮 [배경 사진 X번 조종 중] 방향키로 미세 조절 중입니다! (Shift 누르면 10px씩)</div>
+      <div id="joystickNotice">🎮 [배경 사진 X번 조종 중] 방향키로 이동 중입니다! (Shift 누르면 10px씩)</div>
 
       <div class="bg-slots-container" id="bgSlotsContainer">
         <!-- 동적 생성 -->
@@ -396,7 +402,7 @@
     const notice = document.getElementById('joystickNotice');
     if (activeBgIndex !== null && activeBgIndex < pageInfo.backgrounds.length) {
       notice.style.display = 'block';
-      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 방향키로 이동 중입니다! (X: 좌우, Y: 상하 | Shift 누르면 10px씩)`;
+      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 민트색 외곽선이 표시된 사진을 방향키로 이동 중입니다! (Shift 누르면 10px씩)`;
     } else {
       notice.style.display = 'none';
       activeBgIndex = null;
@@ -407,6 +413,7 @@
     syncInputsToData();
     pageInfo.backgrounds.push({ image, size, position });
     renderBgSlotsHTML();
+    renderPageInfo();
   }
 
   function removeSingleBackground(index) {
@@ -437,6 +444,7 @@
       activeBgIndex = index;
     }
     renderBgSlotsHTML();
+    renderPageInfo(); // 외곽선 표시를 위해 실시간 렌더링
   }
 
   function syncInputsToData() {
@@ -448,7 +456,6 @@
     });
   }
 
-  // ★ 독립된 레이어 상에서 화살표 방향키로 절대 좌표(X, Y) 미세 조절 ★
   window.addEventListener('keydown', function(e) {
     if (activeBgIndex === null || document.getElementById('adminBox').style.display !== 'block') return;
     
@@ -510,19 +517,21 @@
     document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
     document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
     
-    // ★ 독립된 배경 레이어에 HTML 요소로 확실하게 그림 렌더링 ★
     const bgLayer = document.getElementById('bgImageLayer');
     let layerHtml = "";
 
-    pageInfo.backgrounds.forEach(bg => {
+    pageInfo.backgrounds.forEach((bg, i) => {
       if (bg.image) {
         let posParts = (bg.position || '50px 50px').split(' ');
         let leftVal = posParts[0] || '50px';
         let topVal = posParts[1] || '50px';
         let sizeVal = bg.size || '300px';
 
+        // 현재 선택된 사진일 경우에만 민트색 외곽선 클래스 부여
+        let isActiveEditing = (isAdmin && activeBgIndex === i) ? 'active-editing' : '';
+
         layerHtml += `
-          <div class="bg-img-element" style="
+          <div class="bg-img-element ${isActiveEditing}" style="
             background-image: url(${bg.image});
             width: ${sizeVal};
             height: ${sizeVal};
@@ -571,10 +580,11 @@
     });
 
     if (filesToLoad.length === 0) {
+      activeBgIndex = null; // 저장 완료 시 선택 해제 -> 민트색 외곽선 자동 삭제
       localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
       renderPageInfo();
       renderBgSlotsHTML();
-      if (!silent) alert("배경 설정이 적용되었습니다! ✨");
+      if (!silent) alert("배경 설정이 적용되어 가이드 선이 사라졌습니다! ✨");
       return;
     }
 
@@ -585,6 +595,7 @@
         pageInfo.backgrounds[item.index].image = e.target.result;
         loadedCount++;
         if (loadedCount === filesToLoad.length) {
+          activeBgIndex = null; // 저장 완료 시 선택 해제 -> 민트색 외곽선 자동 삭제
           localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
           renderPageInfo();
           renderBgSlotsHTML();

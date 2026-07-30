@@ -83,11 +83,13 @@
   button.action-btn:hover { opacity: 0.8; }
   button.import-btn { background: #555; }
   button.delete-bg-btn { background: #ff4d4d; margin-top: 5px; }
-  button.delete-single-btn { background: #ff85a2; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
-  button.delete-single-btn:hover { opacity: 0.8; }
+  
+  .btn-select-bg { background: #6c757d; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
+  .btn-select-bg.active { background: #28a745; }
+  .btn-delete-bg-slot { background: #ff4d4d; border: none; color: white; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 0.8em; font-weight: bold; white-space: nowrap; }
 
   .bg-slots-container {
-    max-height: 250px;
+    max-height: 300px;
     overflow-y: auto;
     padding-right: 5px;
     margin-bottom: 10px;
@@ -96,6 +98,11 @@
     background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 8px; border: 1px solid #eee;
   }
   .bg-slot-box h6 { margin: 0 0 6px 0; color: #444; font-size: 0.9em; }
+
+  /* 조이콘 조작 안내 배너 */
+  #joystickNotice {
+    display: none; background: #e2f0d9; border: 1px solid #c8e6c9; padding: 10px; border-radius: 8px; font-size: 0.85em; color: #2e7d32; margin-bottom: 10px; text-align: center; font-weight: bold;
+  }
 
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
   input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
@@ -168,16 +175,22 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
+    <!-- ★ 메모형 슬롯 추가 및 조이콘 조절 기능 섹션 ★ -->
     <div class="admin-section">
-      <h5>🖼️ 배경 이미지 관리 (최대 100장)</h5>
-      <p style="font-size: 0.85em; color: #666; margin-top: 0;">원하는 사진만 개별 삭제하거나 크기·위치를 조절할 수 있습니다.</p>
+      <div class="lyrics-header">
+        <h5>🖼️ 배경 이미지 관리 (메모식 추가)</h5>
+        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', 'center center')">➕ 배경 사진 칸 추가</button>
+      </div>
+      <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'선택' 버튼을 누른 뒤 키보드 방향키(← → ↑ ↓)로 위치를 미세 조정하세요!</p>
       
+      <div id="joystickNotice">🎮 [배경 사진 X번 조종 중] 방향키로 미세 조절 중입니다! (Shift 누르면 10px씩)</div>
+
       <div class="bg-slots-container" id="bgSlotsContainer">
-        <!-- 자바스크립트로 100개의 슬롯이 동적 생성됩니다 -->
+        <!-- 동적 생성 -->
       </div>
 
       <button class="action-btn" onclick="saveBackgroundSettings()">배경 설정 적용하기</button>
-      <button class="action-btn delete-bg-btn" onclick="removeBackground()">모든 배경 이미지 초기화</button>
+      <button class="action-btn delete-bg-btn" onclick="removeBackgroundAll()">모든 배경 사진 초기화</button>
     </div>
 
     <div class="admin-section">
@@ -291,55 +304,153 @@
 </div>
 
 <script>
-  const MAX_SLOTS = 100;
-
-  function createDefaultArrays(val) {
-    let arr = [];
-    for(let i=0; i<MAX_SLOTS; i++) arr.push(val);
-    return arr;
-  }
-
   const defaultPageInfo = {
     icons: "♥ ♪ ♥",
     title: "나만의 노래책",
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
-    bgImages: createDefaultArrays(""),
-    bgSizes: createDefaultArrays(""),
-    bgPositions: createDefaultArrays(""),
+    backgrounds: [], // { image: "", size: "300px", position: "center center" } 형태의 객체 배열
     password: "1234"
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
+  if (!pageInfo.backgrounds) pageInfo.backgrounds = [];
 
-  if(!pageInfo.bgImages || pageInfo.bgImages.length < MAX_SLOTS) pageInfo.bgImages = createDefaultArrays("");
-  if(!pageInfo.bgSizes || pageInfo.bgSizes.length < MAX_SLOTS) pageInfo.bgSizes = createDefaultArrays("");
-  if(!pageInfo.bgPositions || pageInfo.bgPositions.length < MAX_SLOTS) pageInfo.bgPositions = createDefaultArrays("");
+  let activeBgIndex = null; // 현재 조이콘 조작 중인 배경 사진 번호
 
   function renderBgSlotsHTML() {
     const container = document.getElementById('bgSlotsContainer');
     if (!container) return;
     
+    if (pageInfo.backgrounds.length === 0) {
+      container.innerHTML = `<p style="text-align:center; color:#888; font-size:0.9em; margin:10px 0;">등록된 배경 사진이 없습니다. 위 버튼을 눌러 추가해보세요!</p>`;
+      return;
+    }
+
     let html = "";
-    for (let i = 0; i < MAX_SLOTS; i++) {
-      let hasImg = pageInfo.bgImages[i] ? '✨(등록됨)' : '';
+    pageInfo.backgrounds.forEach((bg, i) => {
+      let isSelected = activeBgIndex === i;
       html += `
-        <div class="bg-slot-box" id="slotBox-${i}">
+        <div class="bg-slot-box" style="border: ${isSelected ? '2px solid #28a745' : '1px solid #eee'};">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <h6 style="margin: 0;">배경 사진 ${i+1} ${hasImg}</h6>
-            ${pageInfo.bgImages[i] ? `<button type="button" class="delete-single-btn" onclick="removeSingleBackground(${i})">🗑️ 이 사진 삭제</button>` : ''}
+            <h6 style="margin: 0;">배경 사진 ${i+1} ${bg.image ? '✨(등록됨)' : ''}</h6>
+            <div style="display:flex; gap:5px;">
+              <button type="button" class="btn-select-bg ${isSelected ? 'active' : ''}" onclick="selectBgForJoystick(${i})">${isSelected ? '🎮 조종 중(선택됨)' : '🎯 위치 조절(선택)'}</button>
+              <button type="button" class="btn-delete-bg-slot" onclick="removeSingleBackground(${i})">🗑️ 삭제</button>
+            </div>
           </div>
-          <input type="file" id="bgInput${i+1}" accept="image/*" style="margin-bottom: 5px; width: 100%; box-sizing: border-box;">
+          <input type="file" id="bgInput_${i}" accept="image/*" style="margin-bottom: 5px; width: 100%; box-sizing: border-box;">
           <div class="form-row">
-            <input type="text" id="bgSize${i+1}" placeholder="크기 (예: 200px)" value="${pageInfo.bgSizes[i] || ''}">
-            <input type="text" id="bgPos${i+1}" placeholder="위치 (예: left top)" value="${pageInfo.bgPositions[i] || ''}">
+            <input type="text" id="bgSize_${i}" placeholder="크기 (예: 300px)" value="${bg.size || '300px'}">
+            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 100px 200px)" value="${bg.position || 'center center'}">
           </div>
         </div>
       `;
-    }
+    });
     container.innerHTML = html;
+
+    const notice = document.getElementById('joystickNotice');
+    if (activeBgIndex !== null && activeBgIndex < pageInfo.backgrounds.length) {
+      notice.style.display = 'block';
+      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 키보드 방향키(← → ↑ ↓)로 위치를 미세 조절하세요! (Shift 누르면 10px씩)`;
+    } else {
+      notice.style.display = 'none';
+      activeBgIndex = null;
+    }
   }
+
+  function addBgSlot(image = "", size = "300px", position = "center center") {
+    // 입력창에 적혀있던 임시 값들 먼저 현재 데이터에 백업
+    syncInputsToData();
+    pageInfo.backgrounds.push({ image, size, position });
+    renderBgSlotsHTML();
+  }
+
+  function removeSingleBackground(index) {
+    syncInputsToData();
+    pageInfo.backgrounds.splice(index, 1);
+    if (activeBgIndex === index) activeBgIndex = null;
+    else if (activeBgIndex > index) activeBgIndex--;
+    renderBgSlotsHTML();
+    saveBackgroundSettings(true); // 즉시 반영
+  }
+
+  function removeBackgroundAll() {
+    if (confirm("모든 배경 사진을 초기화하시겠습니까?")) {
+      pageInfo.backgrounds = [];
+      activeBgIndex = null;
+      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+      renderPageInfo();
+      renderBgSlotsHTML();
+      alert("모든 배경 사진이 초기화되었습니다.");
+    }
+  }
+
+  function selectBgForJoystick(index) {
+    syncInputsToData();
+    if (activeBgIndex === index) {
+      activeBgIndex = null; // 이미 선택된 거 누르면 해제
+    } else {
+      activeBgIndex = index;
+    }
+    renderBgSlotsHTML();
+  }
+
+  // 입력창의 데이터를 pageInfo에 동기화
+  function syncInputsToData() {
+    pageInfo.backgrounds.forEach((bg, i) => {
+      const sizeInput = document.getElementById(`bgSize_${i}`);
+      const posInput = document.getElementById(`bgPos_${i}`);
+      if (sizeInput) bg.size = sizeInput.value.trim() || "300px";
+      if (posInput) bg.position = posInput.value.trim() || "center center";
+    });
+  }
+
+  // ★ 키보드 방향키 조이콘 조작 리스너 ★
+  window.addEventListener('keydown', function(e) {
+    if (activeBgIndex === null || document.getElementById('adminBox').style.display !== 'block') return;
+    
+    // 사용자가 입력창(input, textarea)에 글을 쓰고 있을 때는 오작동 방지
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') {
+      // 단, 방향키 누를 때는 위치 조절을 위해 입력을 가로챔
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+      } else {
+        return; 
+      }
+    }
+
+    const bg = pageInfo.backgrounds[activeBgIndex];
+    if (!bg) return;
+
+    let step = e.shiftKey ? 10 : 1; // Shift 누르면 10px, 아니면 1px 단위
+    let posParts = bg.position ? bg.position.split(' ') : ['center', 'center'];
+    let xStr = posParts[0] || '0px';
+    let yStr = posParts[1] || '0px';
+
+    // 픽셀 값 추출 함수
+    let getPx = (str) => {
+      let num = parseInt(str);
+      return isNaN(num) ? 0 : num;
+    };
+
+    let x = getPx(xStr);
+    let y = getPx(yStr);
+
+    if (e.key === 'ArrowLeft') x -= step;
+    if (e.key === 'ArrowRight') x += step;
+    if (e.key === 'ArrowUp') y -= step;
+    if (e.key === 'ArrowDown') y += step;
+
+    bg.position = `${x}px ${y}px`;
+    
+    // 화면 실시간 반영
+    renderPageInfo();
+    // 입력창 값도 실시간 동기화
+    const posInput = document.getElementById(`bgPos_${activeBgIndex}`);
+    if (posInput) posInput.value = bg.position;
+  });
 
   const urlParams = new URLSearchParams(window.location.search);
   const isAdmin = urlParams.get('admin') === 'true';
@@ -367,13 +478,13 @@
     let sizes = [];
     let positions = [];
 
-    for (let i = 0; i < MAX_SLOTS; i++) {
-      if (pageInfo.bgImages[i]) {
-        images.push(`url(${pageInfo.bgImages[i]})`);
-        sizes.push(pageInfo.bgSizes[i] || "cover");
-        positions.push(pageInfo.bgPositions[i] || "center");
+    pageInfo.backgrounds.forEach(bg => {
+      if (bg.image) {
+        images.push(`url(${bg.image})`);
+        sizes.push(bg.size || "300px");
+        positions.push(bg.position || "center center");
       }
-    }
+    });
 
     if (images.length > 0) {
       document.documentElement.style.setProperty('background-image', images.join(', '));
@@ -408,27 +519,22 @@
     alert("디자인과 설정이 성공적으로 변경되었습니다!");
   }
 
-  function saveBackgroundSettings() {
-    for (let i = 0; i < MAX_SLOTS; i++) {
-      const sizeInput = document.getElementById(`bgSize${i+1}`);
-      const posInput = document.getElementById(`bgPos${i+1}`);
-      if (sizeInput) pageInfo.bgSizes[i] = sizeInput.value.trim();
-      if (posInput) pageInfo.bgPositions[i] = posInput.value.trim();
-    }
+  function saveBackgroundSettings(silent = false) {
+    syncInputsToData();
 
     let filesToLoad = [];
-    for (let i = 0; i < MAX_SLOTS; i++) {
-      const fileInput = document.getElementById(`bgInput${i+1}`);
+    pageInfo.backgrounds.forEach((bg, i) => {
+      const fileInput = document.getElementById(`bgInput_${i}`);
       if (fileInput && fileInput.files[0]) {
         filesToLoad.push({ index: i, file: fileInput.files[0] });
       }
-    }
+    });
 
     if (filesToLoad.length === 0) {
       localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
       renderPageInfo();
       renderBgSlotsHTML();
-      alert("배경 크기 및 위치 수치가 적용되었습니다! ✨");
+      if (!silent) alert("배경 설정이 적용되었습니다! ✨");
       return;
     }
 
@@ -436,42 +542,17 @@
     filesToLoad.forEach(item => {
       const reader = new FileReader();
       reader.onload = function(e) {
-        pageInfo.bgImages[item.index] = e.target.result;
+        pageInfo.backgrounds[item.index].image = e.target.result;
         loadedCount++;
         if (loadedCount === filesToLoad.length) {
           localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
           renderPageInfo();
           renderBgSlotsHTML();
-          alert("모든 배경 사진과 설정이 성공적으로 적용되었습니다! ✨");
+          if (!silent) alert("모든 배경 사진과 설정이 성공적으로 적용되었습니다! ✨");
         }
       };
       reader.readAsDataURL(item.file);
     });
-  }
-
-  // ★ 특정 슬롯의 사진만 개별 삭제하는 함수 ★
-  function removeSingleBackground(index) {
-    if (confirm(`배경 사진 ${index + 1}번을 삭제하시겠습니까?`)) {
-      pageInfo.bgImages[index] = "";
-      pageInfo.bgSizes[index] = "";
-      pageInfo.bgPositions[index] = "";
-      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-      renderPageInfo();
-      renderBgSlotsHTML();
-      alert("해당 사진이 삭제되었습니다.");
-    }
-  }
-
-  function removeBackground() {
-    if (confirm("모든 배경 이미지(100장)를 초기화하시겠습니까?")) {
-      pageInfo.bgImages = createDefaultArrays("");
-      pageInfo.bgSizes = createDefaultArrays("");
-      pageInfo.bgPositions = createDefaultArrays("");
-      localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-      renderPageInfo();
-      renderBgSlotsHTML();
-      alert("모든 배경 이미지가 초기화되었습니다.");
-    }
   }
 
   function searchLyricsOnNaver(titleId, artistId) {

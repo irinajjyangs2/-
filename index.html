@@ -16,15 +16,35 @@
   body {
     font-family: 'Pretendard', -apple-system, sans-serif;
     background-color: var(--bg);
-    background-repeat: no-repeat;
-    background-attachment: fixed;
     color: var(--text);
     margin: 0;
     padding: 20px;
     display: flex;
     justify-content: center;
-    transition: background 0.3s ease;
+    transition: background-color 0.3s ease;
+    position: relative;
+    min-height: 100vh;
+    box-sizing: border-box;
   }
+  
+  /* ★ 배경 이미지를 확실하게 눈에 보이도록 그려주는 레이어 ★ */
+  #bgImageLayer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .bg-img-element {
+    position: absolute;
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center;
+  }
+
   .container {
     max-width: 600px;
     width: 100%;
@@ -167,6 +187,10 @@
 </style>
 </head>
 <body>
+
+<!-- 독립된 배경 이미지 렌더링 레이어 -->
+<div id="bgImageLayer"></div>
+
 <div class="container">
   <header>
     <div class="icons" id="pageIconsDisplay">♥ ♪ ♥</div>
@@ -177,11 +201,10 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
-    <!-- 배경 이미지 관리 섹션 복구 완료 -->
     <div class="admin-section">
       <div class="lyrics-header">
         <h5>🖼️ 배경 이미지 추가 및 위치 조절</h5>
-        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', 'center center')">➕ 사진 칸 추가</button>
+        <button type="button" class="btn-small btn-lyrics" onclick="addBgSlot('', '300px', '50px 50px')">➕ 사진 칸 추가</button>
       </div>
       <p style="font-size: 0.85em; color: #666; margin-top: 2px;">'위치 조절(선택)' 누르고 방향키(← → ↑ ↓)로 미세 조절 가능!</p>
       
@@ -299,7 +322,7 @@
         <select id="editDifficulty" style="flex: 1;">
           <option value="1">★ 난이도 1</option>
           <option value="2">★★ 난이도 2</option>
-          <option value="3">★★★ 난이도 3</option>
+          <option value="3" selected>★★★ 난이도 3</option>
           <option value="4">★★★★ 난이도 4</option>
           <option value="5">★★★★★ 난이도 5</option>
         </select>
@@ -363,7 +386,7 @@
           <input type="file" id="bgInput_${i}" accept="image/*" style="margin-bottom: 5px; width: 100%; box-sizing: border-box;">
           <div class="form-row">
             <input type="text" id="bgSize_${i}" placeholder="크기 (예: 300px)" value="${bg.size || '300px'}">
-            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 100px 200px)" value="${bg.position || 'center center'}">
+            <input type="text" id="bgPos_${i}" placeholder="위치 (예: 50px 50px)" value="${bg.position || '50px 50px'}">
           </div>
         </div>
       `;
@@ -373,14 +396,14 @@
     const notice = document.getElementById('joystickNotice');
     if (activeBgIndex !== null && activeBgIndex < pageInfo.backgrounds.length) {
       notice.style.display = 'block';
-      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 키보드 방향키(← → ↑ ↓)로 위치를 미세 조절하세요! (Shift 누르면 10px씩)`;
+      notice.textContent = `🎮 [배경 사진 ${activeBgIndex + 1}번 조종 중] 방향키로 이동 중입니다! (X: 좌우, Y: 상하 | Shift 누르면 10px씩)`;
     } else {
       notice.style.display = 'none';
       activeBgIndex = null;
     }
   }
 
-  function addBgSlot(image = "", size = "300px", position = "center center") {
+  function addBgSlot(image = "", size = "300px", position = "50px 50px") {
     syncInputsToData();
     pageInfo.backgrounds.push({ image, size, position });
     renderBgSlotsHTML();
@@ -421,10 +444,11 @@
       const sizeInput = document.getElementById(`bgSize_${i}`);
       const posInput = document.getElementById(`bgPos_${i}`);
       if (sizeInput) bg.size = sizeInput.value.trim() || "300px";
-      if (posInput) bg.position = posInput.value.trim() || "center center";
+      if (posInput) bg.position = posInput.value.trim() || "50px 50px";
     });
   }
 
+  // ★ 독립된 레이어 상에서 화살표 방향키로 절대 좌표(X, Y) 미세 조절 ★
   window.addEventListener('keydown', function(e) {
     if (activeBgIndex === null || document.getElementById('adminBox').style.display !== 'block') return;
     
@@ -440,9 +464,9 @@
     if (!bg) return;
 
     let step = e.shiftKey ? 10 : 1;
-    let posParts = bg.position ? bg.position.split(' ') : ['center', 'center'];
-    let xStr = posParts[0] || '0px';
-    let yStr = posParts[1] || '0px';
+    let posParts = bg.position ? bg.position.split(' ') : ['50px', '50px'];
+    let xStr = posParts[0] || '50px';
+    let yStr = posParts[1] || '50px';
 
     let getPx = (str) => {
       let num = parseInt(str);
@@ -486,25 +510,29 @@
     document.documentElement.style.setProperty('--primary', pageInfo.primaryColor);
     document.documentElement.style.setProperty('--bg', pageInfo.bgColor);
     
-    let images = [];
-    let sizes = [];
-    let positions = [];
+    // ★ 독립된 배경 레이어에 HTML 요소로 확실하게 그림 렌더링 ★
+    const bgLayer = document.getElementById('bgImageLayer');
+    let layerHtml = "";
 
     pageInfo.backgrounds.forEach(bg => {
       if (bg.image) {
-        images.push(`url(${bg.image})`);
-        sizes.push(bg.size || "300px");
-        positions.push(bg.position || "center center");
+        let posParts = (bg.position || '50px 50px').split(' ');
+        let leftVal = posParts[0] || '50px';
+        let topVal = posParts[1] || '50px';
+        let sizeVal = bg.size || '300px';
+
+        layerHtml += `
+          <div class="bg-img-element" style="
+            background-image: url(${bg.image});
+            width: ${sizeVal};
+            height: ${sizeVal};
+            left: ${leftVal};
+            top: ${topVal};
+          "></div>
+        `;
       }
     });
-
-    if (images.length > 0) {
-      document.documentElement.style.setProperty('background-image', images.join(', '));
-      document.documentElement.style.setProperty('background-size', sizes.join(', '));
-      document.documentElement.style.setProperty('background-position', positions.join(', '));
-    } else {
-      document.documentElement.style.setProperty('background-image', 'none');
-    }
+    bgLayer.innerHTML = layerHtml;
 
     if (document.getElementById('adminBox').style.display === 'block') {
       document.getElementById('settingIcons').value = pageInfo.icons;

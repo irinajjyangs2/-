@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스트리머 노래책</title>
+<title>스트리머 노래책 & 시간표</title>
 <!-- 엑셀(CSV) 파일을 읽기 위한 도구 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -19,6 +19,7 @@
     color: var(--text);
     margin: 0;
     padding: 20px;
+    padding-bottom: 80px; /* 하단 바에 가려지지 않게 여백 추가 */
     display: flex;
     justify-content: center;
     transition: background-color 0.3s ease;
@@ -168,6 +169,48 @@
   .modal-memo-item { margin-bottom: 6px; }
   .modal-memo-item:last-child { margin-bottom: 0; }
   .modal-lyrics { flex: 1; overflow-y: auto; white-space: pre-wrap; font-size: 0.95em; line-height: 1.6; color: #444; }
+
+  /* ★ 하단 시간표 고정 바 및 시간표 스타일 ★ */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    text-align: center;
+    padding: 16px 0;
+    font-size: 1.1em;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
+    z-index: 100;
+    transition: background 0.3s;
+  }
+  .bottom-bar:hover { filter: brightness(0.9); }
+
+  .schedule-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .schedule-card {
+    background: #fdfdfd;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 15px 5px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+  }
+  .schedule-card.off { background: #f1f1f1; border-color: #ddd; opacity: 0.8; }
+  .s-day { font-weight: 800; font-size: 1.1em; color: var(--primary); }
+  .schedule-card.off .s-day { color: #888; }
+  .s-time { font-size: 0.85em; font-weight: bold; color: #555; background: white; padding: 4px; border-radius: 6px; border: 1px solid #eee; }
+  .s-content { font-size: 0.85em; color: #444; word-break: keep-all; line-height: 1.3; }
 </style>
 </head>
 <body>
@@ -181,6 +224,16 @@
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
+    <!-- ★ 주간 방송 시간표 관리 구역 추가 ★ -->
+    <div class="admin-section">
+      <h5>📅 주간 방송 시간표 관리</h5>
+      <p style="font-size: 0.85em; color: #666; margin-top: 0;">요일별 방송 시간과 내용을 적어주세요. 휴방인 날은 체크!</p>
+      <div id="adminScheduleList" style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- 자바스크립트로 요일별 입력칸 자동 생성 -->
+      </div>
+      <button class="action-btn" style="margin-top: 10px;" onclick="saveScheduleSettings()">시간표 저장하기</button>
+    </div>
+
     <div class="admin-section">
       <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
       <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요. (앨범 자켓 자동 연동!)</p>
@@ -190,7 +243,6 @@
       </div>
     </div>
 
-    <!-- 새 노래 개별 추가 구역 (앨범 자켓 선택 기능 추가) -->
     <div class="admin-section">
       <h5>🎵 새 노래 개별 추가</h5>
       <div class="form-group">
@@ -209,7 +261,6 @@
           </select>
         </div>
 
-        <!-- 새 노래 앨범 자켓 선택 구역 -->
         <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
           <div class="lyrics-header" style="margin-bottom: 6px;">
             <span>🖼️ 앨범 자켓 사진 선택</span>
@@ -275,6 +326,22 @@
   </div>
 </div>
 
+<!-- ★ 하단 고정 바 (시간표 보기 버튼) ★ -->
+<div class="bottom-bar" onclick="document.getElementById('scheduleModal').style.display='flex'">
+  📅 주간 방송 시간표 보기 ▴
+</div>
+
+<!-- ★ 시간표 팝업 모달 ★ -->
+<div class="modal-overlay" id="scheduleModal" onclick="closeModal('scheduleModal', event)">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 650px; width: 95%;">
+    <h3 class="modal-title" style="text-align: center;">📅 주간 방송 시간표</h3>
+    <div class="schedule-grid" id="scheduleGridViewer">
+      <!-- 자바스크립트로 저장된 시간표 불러옴 -->
+    </div>
+    <button class="action-btn" style="padding: 10px; margin-top: 10px;" onclick="closeModal('scheduleModal')">닫기</button>
+  </div>
+</div>
+
 <div class="modal-overlay" id="lyricsModal" onclick="closeModal('lyricsModal', event)">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h3 class="modal-title" id="lyricsModalTitle">곡 제목</h3>
@@ -305,7 +372,6 @@
         </select>
       </div>
 
-      <!-- 수정 앨범 자켓 선택 구역 -->
       <div style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
         <div class="lyrics-header" style="margin-bottom: 6px;">
           <span>🖼️ 앨범 자켓 사진 선택</span>
@@ -336,16 +402,31 @@
 </div>
 
 <script>
+  // 기본 설정에 빈 시간표 데이터 템플릿 포함
   const defaultPageInfo = {
     icons: "♥ ♪ ♥",
     title: "나만의 노래책",
     desc: "곡명이나 가수를 검색하거나,\n원하는 장르에서 신청곡을 골라보세요.",
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
-    password: "12345"
+    password: "12345",
+    schedule: [
+      { day: '월', time: '20:00', content: '정규 방송', isOff: false },
+      { day: '화', time: '20:00', content: '정규 방송', isOff: false },
+      { day: '수', time: '', content: '휴방', isOff: true },
+      { day: '목', time: '20:00', content: '정규 방송', isOff: false },
+      { 시: '금', time: '20:00', content: '시청자 참여', isOff: false },
+      { day: '토', time: '19:00', content: '종합 게임', isOff: false },
+      { day: '일', time: '', content: '휴방', isOff: true }
+    ]
   };
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
+  
+  // 기존 사용자 데이터에 시간표가 없으면 추가해줌
+  if(!pageInfo.schedule || pageInfo.schedule.length === 0) {
+    pageInfo.schedule = defaultPageInfo.schedule;
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const isAdmin = urlParams.get('admin') === 'true';
@@ -358,6 +439,77 @@
       alert("비밀번호가 틀렸습니다! 일반 시청자 모드로 접속합니다.");
       window.location.href = window.location.pathname; 
     }
+  }
+
+  // ★ 관리자용 시간표 입력칸 생성 함수 ★
+  function renderAdminSchedule() {
+    const container = document.getElementById('adminScheduleList');
+    if (!container) return;
+    let html = '';
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    
+    days.forEach((dayLabel, index) => {
+      // 저장된 데이터가 혹시 누락되어 있으면 기본 템플릿 제공
+      let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
+      html += `
+        <div class="form-row" style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
+          <span style="font-weight: 800; width: 25px; text-align: center; color: var(--primary);">${dayLabel}</span>
+          <input type="text" id="schTime_${index}" placeholder="예: 20:00" value="${data.time}" style="flex: 0.5; padding: 6px; font-size: 0.85em;">
+          <input type="text" id="schContent_${index}" placeholder="방송 내용" value="${data.content}" style="flex: 1; padding: 6px; font-size: 0.85em;">
+          <label style="font-size: 0.85em; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
+            <input type="checkbox" id="schOff_${index}" ${data.isOff ? 'checked' : ''}> 휴방
+          </label>
+        </div>
+      `;
+    });
+    container.innerHTML = html;
+  }
+
+  // ★ 시청자용 시간표 UI 렌더링 함수 ★
+  function renderScheduleViewer() {
+    const container = document.getElementById('scheduleGridViewer');
+    if (!container) return;
+    let html = '';
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    
+    days.forEach((dayLabel, index) => {
+      let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
+      if (data.isOff) {
+        html += `
+          <div class="schedule-card off">
+            <div class="s-day">${dayLabel}</div>
+            <div class="s-content" style="margin-top:auto; font-weight:bold; color:#999; font-size:1em;">💤<br>휴방</div>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="schedule-card">
+            <div class="s-day">${dayLabel}</div>
+            <div class="s-time">⏰ ${data.time || '미정'}</div>
+            <div class="s-content">${data.content || '방송'}</div>
+          </div>
+        `;
+      }
+    });
+    container.innerHTML = html;
+  }
+
+  // ★ 시간표 저장 기능 ★
+  function saveScheduleSettings() {
+    const newSchedule = [];
+    const days = ['월', '화', '수', '목', '금', '토', '일'];
+    for(let i=0; i<7; i++) {
+      newSchedule.push({
+        day: days[i],
+        time: document.getElementById(`schTime_${i}`).value.trim(),
+        content: document.getElementById(`schContent_${i}`).value.trim(),
+        isOff: document.getElementById(`schOff_${i}`).checked
+      });
+    }
+    pageInfo.schedule = newSchedule;
+    localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
+    renderScheduleViewer();
+    alert("주간 방송 시간표가 성공적으로 저장되었습니다!");
   }
 
   function renderPageInfo() {
@@ -375,7 +527,10 @@
       document.getElementById('settingPrimaryColor').value = pageInfo.primaryColor;
       document.getElementById('settingBgColor').value = pageInfo.bgColor;
       document.getElementById('settingPassword').value = pageInfo.password;
+      renderAdminSchedule(); // 관리자 설정창 렌더링 시 시간표 입력칸도 렌더링
     }
+    
+    renderScheduleViewer(); // 시청자 모달용 시간표 렌더링
   }
 
   function savePageSettings() {
@@ -452,7 +607,6 @@
     }
   }
 
-  // 새 노래 추가 모드에서 자켓 후보 검색
   async function searchNewAlbumArtOptions() {
     const title = document.getElementById("newTitle").value.trim();
     const artist = document.getElementById("newArtist").value.trim();
@@ -493,7 +647,6 @@
     document.getElementById("newAlbumArtUrl").value = url;
   }
 
-  // 수정 모드에서 자켓 후보 검색
   async function searchEditAlbumArtOptions() {
     const title = document.getElementById("editTitle").value.trim();
     const artist = document.getElementById("editArtist").value.trim();
@@ -669,7 +822,6 @@
 
     if (!title || !artist) { alert("곡명과 가수를 입력해주세요!"); return; }
 
-    // 만약 사용자가 직접 자켓을 선택하지 않았다면 자동으로 첫 번째 사진 가져오기
     if (!albumArtUrl) {
       const urls = await fetchAlbumArtOptions(title, artist);
       albumArtUrl = urls.length > 0 ? urls[0] : "";

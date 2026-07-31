@@ -79,6 +79,13 @@
   button.action-btn:hover { opacity: 0.8; }
   button.import-btn { background: #555; }
 
+  /* ★ 기능 ON/OFF 토글 버튼 ★ */
+  .toggle-btn {
+    flex: 1; background: #eee; color: #888; border: 2px solid #ddd;
+    padding: 10px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.2s;
+  }
+  .toggle-btn.on { background: var(--primary); color: white; border-color: var(--primary); }
+
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
   input[type="text"].search { width: 100%; font-size: 1em; }
   .genres { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -127,7 +134,7 @@
   .modal-memo-item:last-child { margin-bottom: 0; }
   .modal-lyrics { flex: 1; overflow-y: auto; white-space: pre-wrap; font-size: 0.95em; line-height: 1.6; color: #444; }
 
-  /* ★ 외부 링크(바로가기) 디자인 ★ */
+  /* 외부 링크 및 시간표 디자인 */
   .links-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
   .link-card {
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -136,8 +143,7 @@
   }
   .link-card:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
 
-  /* ★ 시간표 디자인 ★ */
-  .schedule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
+  .schedule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; margin-bottom: 30px; }
   .schedule-card { background: #fdfdfd; border: 1px solid var(--border); border-radius: 12px; padding: 15px 5px; text-align: center; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
   .schedule-card.off { background: #f1f1f1; border-color: #ddd; opacity: 0.8; }
   .s-day { font-weight: 800; font-size: 1.1em; color: var(--primary); }
@@ -168,22 +174,45 @@
     <div class="admin-section">
       <h5>📅 & 🔗 방송 정보 통합 관리 (2페이지)</h5>
       
-      <div class="lyrics-header" style="margin-bottom: 6px;">
-        <span style="color: var(--primary);">🔗 클릭 가능한 링크 등록</span>
-        <button type="button" class="btn-small" onclick="addAdminLinkRow()">➕ 링크 추가</button>
+      <!-- ON/OFF 스위치 버튼 -->
+      <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+        <button type="button" id="btnToggleSchedule" class="toggle-btn" onclick="toggleFeature('schedule')">✅ 시간표 표시 ON</button>
+        <button type="button" id="btnToggleLinks" class="toggle-btn" onclick="toggleFeature('links')">✅ 링크 표시 ON</button>
       </div>
-      <div id="adminLinksList" class="memo-list" style="margin-bottom: 20px;"></div>
 
-      <div class="lyrics-header" style="margin-bottom: 6px;">
-        <span style="color: var(--primary);">📅 주간 방송 시간표</span>
+      <!-- 시간표 관리 영역 (토글 됨) -->
+      <div id="adminScheduleArea">
+        <div class="lyrics-header" style="margin-bottom: 6px;">
+          <span style="color: var(--primary);">📅 주간 방송 시간표 설정</span>
+        </div>
+        <div class="form-row" style="margin-bottom: 15px; background: #f4f4f4; padding: 10px; border-radius: 8px; font-size: 0.9em;">
+          <label style="flex:1; display:flex; flex-direction:column; gap:4px; color:#555;">
+            <b>방송 중 아이콘</b>
+            <input type="text" id="settingSchIconOn" placeholder="예: ⏰" style="padding: 6px;">
+          </label>
+          <label style="flex:1; display:flex; flex-direction:column; gap:4px; color:#555;">
+            <b>휴방 아이콘</b>
+            <input type="text" id="settingSchIconOff" placeholder="예: 💤" style="padding: 6px;">
+          </label>
+        </div>
+        <div id="adminScheduleList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 25px;">
+          <!-- JS로 자동 생성 -->
+        </div>
       </div>
-      <div id="adminScheduleList" style="display: flex; flex-direction: column; gap: 8px;">
-        <!-- JS로 자동 생성 -->
+
+      <!-- 링크 관리 영역 (토글 됨) -->
+      <div id="adminLinksArea">
+        <div class="lyrics-header" style="margin-bottom: 6px;">
+          <span style="color: var(--primary);">🔗 클릭 가능한 바로가기 링크 등록</span>
+          <button type="button" class="btn-small" onclick="addAdminLinkRow()">➕ 링크 추가</button>
+        </div>
+        <div id="adminLinksList" class="memo-list" style="margin-bottom: 10px;"></div>
       </div>
+
       <button class="action-btn" style="margin-top: 15px;" onclick="saveInfoSettings()">방송 정보 저장하기</button>
     </div>
 
-    <!-- 기존 관리 기능들 -->
+    <!-- 기존 노래책 관리 기능들 -->
     <div class="admin-section">
       <h5>📁 엑셀(CSV) 파일로 노래 한 번에 등록</h5>
       <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요.</p>
@@ -279,14 +308,26 @@
 
   <!-- ★ 2페이지: 방송 정보(링크 & 시간표) 탭 내용 ★ -->
   <div id="tab_info" class="tab-content">
-    <div class="section-title">🔗 바로가기 링크</div>
-    <div id="viewerLinksContainer" class="links-container">
-      <!-- JS 자동 생성 -->
+    
+    <!-- 시간표 래퍼 -->
+    <div id="viewerScheduleWrapper">
+      <div class="section-title">📅 주간 방송 시간표</div>
+      <div class="schedule-grid" id="scheduleGridViewer">
+        <!-- JS 자동 생성 -->
+      </div>
     </div>
 
-    <div class="section-title">📅 주간 방송 시간표</div>
-    <div class="schedule-grid" id="scheduleGridViewer">
-      <!-- JS 자동 생성 -->
+    <!-- 링크 래퍼 -->
+    <div id="viewerLinksWrapper">
+      <div class="section-title">🔗 바로가기 링크</div>
+      <div id="viewerLinksContainer" class="links-container">
+        <!-- JS 자동 생성 -->
+      </div>
+    </div>
+
+    <!-- 둘 다 꺼졌을 때 나오는 메시지 -->
+    <div id="viewerEmptyInfo" style="display:none; text-align:center; padding: 40px 20px; color:#888;">
+      현재 등록된 방송 정보가 없습니다. 💬
     </div>
   </div>
 </div>
@@ -352,7 +393,7 @@
 </div>
 
 <script>
-  // 기본 설정에 시간표와 외부 링크 템플릿 포함
+  // 기본 설정
   const defaultPageInfo = {
     icons: "♥ ♪ ♥",
     title: "나만의 노래책",
@@ -360,6 +401,10 @@
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
     password: "12345",
+    useSchedule: true, // 시간표 사용 여부
+    useLinks: true,    // 링크 사용 여부
+    scheduleIconOn: "⏰",
+    scheduleIconOff: "💤",
     links: [
       { name: '📺 유튜브 바로가기', url: 'https://youtube.com' },
       { name: '🔴 치지직 / 생방송 바로가기', url: 'https://chzzk.naver.com' }
@@ -377,8 +422,16 @@
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
   
+  // 누락된 기본 설정 챙기기
+  if(pageInfo.useSchedule === undefined) pageInfo.useSchedule = true;
+  if(pageInfo.useLinks === undefined) pageInfo.useLinks = true;
   if(!pageInfo.schedule || pageInfo.schedule.length === 0) pageInfo.schedule = defaultPageInfo.schedule;
   if(!pageInfo.links) pageInfo.links = defaultPageInfo.links;
+  if(!pageInfo.scheduleIconOn) pageInfo.scheduleIconOn = defaultPageInfo.scheduleIconOn;
+  if(!pageInfo.scheduleIconOff) pageInfo.scheduleIconOff = defaultPageInfo.scheduleIconOff;
+
+  let currentUseSchedule = pageInfo.useSchedule;
+  let currentUseLinks = pageInfo.useLinks;
 
   const urlParams = new URLSearchParams(window.location.search);
   const isAdmin = urlParams.get('admin') === 'true';
@@ -393,7 +446,7 @@
     }
   }
 
-  // ★ 탭 전환 기능 ★
+  // 탭 전환 기능
   function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -402,7 +455,23 @@
     document.getElementById(`tab_${tabId}`).classList.add('active');
   }
 
-  // ★ 관리자용: 링크 입력칸 추가 ★
+  // ★ 기능 ON/OFF 토글 로직 ★
+  function toggleFeature(feature) {
+    if (feature === 'schedule') {
+      currentUseSchedule = !currentUseSchedule;
+      const btn = document.getElementById('btnToggleSchedule');
+      btn.className = currentUseSchedule ? 'toggle-btn on' : 'toggle-btn';
+      btn.innerHTML = currentUseSchedule ? '✅ 시간표 표시 ON' : '❌ 시간표 표시 OFF';
+      document.getElementById('adminScheduleArea').style.display = currentUseSchedule ? 'block' : 'none';
+    } else if (feature === 'links') {
+      currentUseLinks = !currentUseLinks;
+      const btn = document.getElementById('btnToggleLinks');
+      btn.className = currentUseLinks ? 'toggle-btn on' : 'toggle-btn';
+      btn.innerHTML = currentUseLinks ? '✅ 링크 표시 ON' : '❌ 링크 표시 OFF';
+      document.getElementById('adminLinksArea').style.display = currentUseLinks ? 'block' : 'none';
+    }
+  }
+
   function addAdminLinkRow(name = "", url = "") {
     const container = document.getElementById('adminLinksList');
     const row = document.createElement("div");
@@ -415,17 +484,22 @@
     container.appendChild(row);
   }
 
-  // ★ 관리자용: 시간표 & 링크 렌더링 ★
   function renderAdminInfoSettings() {
-    // 1. 링크 렌더링
-    const linksContainer = document.getElementById('adminLinksList');
-    if (linksContainer) {
-      linksContainer.innerHTML = '';
-      pageInfo.links.forEach(link => addAdminLinkRow(link.name, link.url));
-      if (pageInfo.links.length === 0) addAdminLinkRow();
-    }
+    // 버튼 초기 세팅
+    const btnSch = document.getElementById('btnToggleSchedule');
+    btnSch.className = currentUseSchedule ? 'toggle-btn on' : 'toggle-btn';
+    btnSch.innerHTML = currentUseSchedule ? '✅ 시간표 표시 ON' : '❌ 시간표 표시 OFF';
+    document.getElementById('adminScheduleArea').style.display = currentUseSchedule ? 'block' : 'none';
 
-    // 2. 시간표 렌더링
+    const btnLnk = document.getElementById('btnToggleLinks');
+    btnLnk.className = currentUseLinks ? 'toggle-btn on' : 'toggle-btn';
+    btnLnk.innerHTML = currentUseLinks ? '✅ 링크 표시 ON' : '❌ 링크 표시 OFF';
+    document.getElementById('adminLinksArea').style.display = currentUseLinks ? 'block' : 'none';
+
+    // 시간표 설정 렌더링
+    document.getElementById('settingSchIconOn').value = pageInfo.scheduleIconOn || "⏰";
+    document.getElementById('settingSchIconOff').value = pageInfo.scheduleIconOff || "💤";
+
     const schContainer = document.getElementById('adminScheduleList');
     if (schContainer) {
       let html = '';
@@ -445,13 +519,24 @@
       });
       schContainer.innerHTML = html;
     }
+
+    // 링크 설정 렌더링
+    const linksContainer = document.getElementById('adminLinksList');
+    if (linksContainer) {
+      linksContainer.innerHTML = '';
+      pageInfo.links.forEach(link => addAdminLinkRow(link.name, link.url));
+      if (pageInfo.links.length === 0) addAdminLinkRow();
+    }
   }
 
-  // ★ 시청자용: 방송 정보 탭 렌더링 ★
   function renderViewerInfo() {
-    // 1. 링크 버튼 렌더링
-    const linksContainer = document.getElementById('viewerLinksContainer');
-    if (linksContainer) {
+    // 래퍼 On/Off 처리
+    document.getElementById('viewerScheduleWrapper').style.display = pageInfo.useSchedule ? 'block' : 'none';
+    document.getElementById('viewerLinksWrapper').style.display = pageInfo.useLinks ? 'block' : 'none';
+    document.getElementById('viewerEmptyInfo').style.display = (!pageInfo.useSchedule && !pageInfo.useLinks) ? 'block' : 'none';
+
+    if(pageInfo.useLinks) {
+      const linksContainer = document.getElementById('viewerLinksContainer');
       let linksHtml = '';
       if(pageInfo.links && pageInfo.links.length > 0) {
         pageInfo.links.forEach(link => {
@@ -466,10 +551,12 @@
       linksContainer.innerHTML = linksHtml;
     }
 
-    // 2. 시간표 렌더링
-    const schContainer = document.getElementById('scheduleGridViewer');
-    if (schContainer) {
+    if(pageInfo.useSchedule) {
+      const schContainer = document.getElementById('scheduleGridViewer');
       let schHtml = '';
+      let iconOn = pageInfo.scheduleIconOn || "⏰";
+      let iconOff = pageInfo.scheduleIconOff || "💤";
+
       const days = ['월', '화', '수', '목', '금', '토', '일'];
       days.forEach((dayLabel, index) => {
         let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
@@ -477,14 +564,14 @@
           schHtml += `
             <div class="schedule-card off">
               <div class="s-day">${dayLabel}</div>
-              <div class="s-content" style="margin-top:auto; font-weight:bold; color:#999; font-size:1em;">💤<br>휴방</div>
+              <div class="s-content" style="margin-top:auto; font-weight:bold; color:#999; font-size:1em;">${iconOff}<br>휴방</div>
             </div>
           `;
         } else {
           schHtml += `
             <div class="schedule-card">
               <div class="s-day">${dayLabel}</div>
-              <div class="s-time">⏰ ${data.time || '미정'}</div>
+              <div class="s-time">${iconOn} ${data.time || '미정'}</div>
               <div class="s-content">${data.content || '방송'}</div>
             </div>
           `;
@@ -494,36 +581,41 @@
     }
   }
 
-  // ★ 관리자 통합 저장 (시간표 & 링크) ★
   function saveInfoSettings() {
-    // 링크 수집
-    const newLinks = [];
-    document.querySelectorAll('.link-row').forEach(row => {
-      const name = row.querySelector('.link-name').value.trim();
-      const url = row.querySelector('.link-url').value.trim();
-      if (name || url) { newLinks.push({ name, url }); }
-    });
-    pageInfo.links = newLinks;
+    pageInfo.useSchedule = currentUseSchedule;
+    pageInfo.useLinks = currentUseLinks;
 
-    // 시간표 수집
-    const newSchedule = [];
-    const days = ['월', '화', '수', '목', '금', '토', '일'];
-    for(let i=0; i<7; i++) {
-      newSchedule.push({
-        day: days[i],
-        time: document.getElementById(`schTime_${i}`).value.trim(),
-        content: document.getElementById(`schContent_${i}`).value.trim(),
-        isOff: document.getElementById(`schOff_${i}`).checked
-      });
+    if (currentUseSchedule) {
+      pageInfo.scheduleIconOn = document.getElementById('settingSchIconOn').value.trim() || "⏰";
+      pageInfo.scheduleIconOff = document.getElementById('settingSchIconOff').value.trim() || "💤";
+      const newSchedule = [];
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      for(let i=0; i<7; i++) {
+        newSchedule.push({
+          day: days[i],
+          time: document.getElementById(`schTime_${i}`).value.trim(),
+          content: document.getElementById(`schContent_${i}`).value.trim(),
+          isOff: document.getElementById(`schOff_${i}`).checked
+        });
+      }
+      pageInfo.schedule = newSchedule;
     }
-    pageInfo.schedule = newSchedule;
+
+    if (currentUseLinks) {
+      const newLinks = [];
+      document.querySelectorAll('.link-row').forEach(row => {
+        const name = row.querySelector('.link-name').value.trim();
+        const url = row.querySelector('.link-url').value.trim();
+        if (name || url) { newLinks.push({ name, url }); }
+      });
+      pageInfo.links = newLinks;
+    }
 
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
     renderViewerInfo();
-    alert("방송 정보(링크 및 시간표)가 성공적으로 저장되었습니다!");
+    alert("방송 정보 설정이 성공적으로 저장되었습니다!");
   }
 
-  // 페이지 기본 정보 렌더링
   function renderPageInfo() {
     document.getElementById('pageIconsDisplay').textContent = pageInfo.icons;
     document.getElementById('pageTitleDisplay').textContent = pageInfo.title;

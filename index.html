@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>스트리머 노래책 & 시간표</title>
+<title>스트리머 노래책 & 방송 정보</title>
 <!-- 엑셀(CSV) 파일을 읽기 위한 도구 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <style>
@@ -19,7 +19,6 @@
     color: var(--text);
     margin: 0;
     padding: 20px;
-    padding-bottom: 80px; /* 하단 바에 가려지지 않게 여백 추가 */
     display: flex;
     justify-content: center;
     transition: background-color 0.3s ease;
@@ -38,6 +37,18 @@
   header h1 { color: var(--primary); margin: 5px 0; font-size: 1.8em; transition: color 0.3s; }
   header p { color: #666; font-size: 0.95em; line-height: 1.5; white-space: pre-wrap; }
   
+  /* ★ 상단 탭 전환 메뉴 ★ */
+  .tabs { display: flex; gap: 10px; margin-bottom: 25px; }
+  .tab-btn {
+    flex: 1; padding: 14px; border-radius: 12px; border: none; background: #f4f4f4;
+    cursor: pointer; font-weight: bold; font-size: 1.05em; color: #888; transition: 0.2s;
+  }
+  .tab-btn.active { background: var(--primary); color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  .tab-content { display: none; animation: fadeIn 0.3s ease; }
+  .tab-content.active { display: block; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
   #adminBox {
     background: #fdf2f4;
     border: 2px dashed var(--primary);
@@ -57,64 +68,38 @@
   input[type="color"] { width: 35px; height: 35px; padding: 0; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
   
   input[type="text"], input[type="password"], select, textarea {
-    padding: 10px 12px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    flex: 1;
-    font-family: inherit;
-    font-size: 0.9em;
-    background: white;
+    padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; flex: 1;
+    font-family: inherit; font-size: 0.9em; background: white; box-sizing: border-box;
   }
   textarea { resize: vertical; min-height: 60px; }
   
-  input[type="file"] {
-    padding: 8px; border: 1px dashed var(--primary); border-radius: 8px; background: var(--bg); font-size: 0.9em;
-  }
+  input[type="file"] { padding: 8px; border: 1px dashed var(--primary); border-radius: 8px; background: var(--bg); font-size: 0.9em; }
 
-  button.action-btn {
-    background: var(--primary); color: white; border: none;
-    padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%;
-    transition: opacity 0.2s;
-  }
+  button.action-btn { background: var(--primary); color: white; border: none; padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; transition: opacity 0.2s; }
   button.action-btn:hover { opacity: 0.8; }
   button.import-btn { background: #555; }
 
   .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 25px; }
-  input[type="text"].search { width: 100%; box-sizing: border-box; font-size: 1em; }
+  input[type="text"].search { width: 100%; font-size: 1em; }
   .genres { display: flex; gap: 8px; flex-wrap: wrap; }
-  .badge {
-    background: #f4f4f4; color: #555; border: none;
-    padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 500;
-  }
+  .badge { background: #f4f4f4; color: #555; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 500; }
   .badge.active { background: var(--primary); color: white; }
   
   .song-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; }
   .song-header h3 { margin: 0; }
   .song-list { list-style: none; padding: 0; margin: 0; }
-  .song-item {
-    padding: 15px; border-bottom: 1px solid #f0f0f0;
-    display: flex; justify-content: space-between; align-items: center;
-  }
+  .song-item { padding: 15px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
   .song-info-wrapper { display: flex; align-items: center; gap: 12px; }
-  .album-art {
-    width: 48px; height: 48px; border-radius: 8px; object-fit: cover;
-    background: #eee; flex-shrink: 0; border: 1px solid #ddd;
-  }
+  .album-art { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: #eee; flex-shrink: 0; border: 1px solid #ddd; }
   .song-title { font-weight: 600; font-size: 1.1em; margin-bottom: 4px; }
   .song-artist { color: #888; font-size: 0.9em; }
   .song-meta { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
   .song-difficulty { color: #f39c12; font-size: 0.85em; font-weight: bold; }
   
   .right-side { display: flex; align-items: center; gap: 6px; }
-  .song-genre {
-    font-size: 0.8em; background: var(--bg); color: var(--primary);
-    padding: 4px 10px; border-radius: 12px; margin-right: 5px; border: 1px solid rgba(0,0,0,0.05);
-  }
+  .song-genre { font-size: 0.8em; background: var(--bg); color: var(--primary); padding: 4px 10px; border-radius: 12px; margin-right: 5px; border: 1px solid rgba(0,0,0,0.05); }
   
-  .btn-small {
-    background: white; border: 1px solid var(--border); color: #555;
-    padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600;
-  }
+  .btn-small { background: white; border: 1px solid var(--border); color: #555; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85em; font-weight: 600; }
   .btn-lyrics { border-color: var(--primary); color: var(--primary); }
   .btn-small:hover { background: #f9f9f9; }
   .icon-btn { background: none; border: none; cursor: pointer; font-size: 1.1em; padding: 4px; }
@@ -127,90 +112,39 @@
   .memo-row input.memo-label { flex: 0.35; }
   .memo-row input.memo-content { flex: 0.65; }
 
-  /* 앨범 선택 그리드 스타일 */
-  .art-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 5px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: #fdfdfd;
-  }
-  .art-option {
-    border: 2px solid transparent;
-    border-radius: 6px;
-    cursor: pointer;
-    overflow: hidden;
-    transition: all 0.2s;
-    background: #eee;
-    aspect-ratio: 1/1;
-  }
+  /* 앨범 선택 그리드 */
+  .art-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 200px; overflow-y: auto; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: #fdfdfd; }
+  .art-option { border: 2px solid transparent; border-radius: 6px; cursor: pointer; overflow: hidden; transition: all 0.2s; background: #eee; aspect-ratio: 1/1; }
   .art-option img { width: 100%; height: 100%; object-fit: cover; }
   .art-option.selected { border-color: var(--primary); transform: scale(1.03); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
-  .modal-overlay {
-    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000;
-  }
-  .modal-content {
-    background: white; padding: 25px; border-radius: 15px; max-width: 400px; width: 85%;
-    max-height: 80vh; display: flex; flex-direction: column; gap: 15px;
-  }
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+  .modal-content { background: white; padding: 25px; border-radius: 15px; max-width: 400px; width: 85%; max-height: 80vh; display: flex; flex-direction: column; gap: 15px; }
   .modal-title { font-size: 1.2em; font-weight: bold; color: var(--primary); margin: 0; }
   
-  .modal-memo {
-    background: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 0.9em;
-    color: #444; border-left: 4px solid var(--primary); word-break: break-all;
-    display: none;
-  }
+  .modal-memo { background: #f8f9fa; padding: 12px; border-radius: 8px; font-size: 0.9em; color: #444; border-left: 4px solid var(--primary); word-break: break-all; display: none; }
   .modal-memo-item { margin-bottom: 6px; }
   .modal-memo-item:last-child { margin-bottom: 0; }
   .modal-lyrics { flex: 1; overflow-y: auto; white-space: pre-wrap; font-size: 0.95em; line-height: 1.6; color: #444; }
 
-  /* ★ 하단 시간표 고정 바 및 시간표 스타일 ★ */
-  .bottom-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: var(--primary);
-    color: white;
-    text-align: center;
-    padding: 16px 0;
-    font-size: 1.1em;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
-    z-index: 100;
-    transition: background 0.3s;
+  /* ★ 외부 링크(바로가기) 디자인 ★ */
+  .links-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+  .link-card {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: #fdfdfd; border: 2px solid #f0f0f0; border-radius: 12px; padding: 14px;
+    text-decoration: none; color: #333; font-weight: bold; font-size: 1.1em; transition: 0.2s;
   }
-  .bottom-bar:hover { filter: brightness(0.9); }
+  .link-card:hover { border-color: var(--primary); color: var(--primary); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
 
-  .schedule-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-    gap: 8px;
-    margin-top: 10px;
-  }
-  .schedule-card {
-    background: #fdfdfd;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 15px 5px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-  }
+  /* ★ 시간표 디자인 ★ */
+  .schedule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)); gap: 8px; }
+  .schedule-card { background: #fdfdfd; border: 1px solid var(--border); border-radius: 12px; padding: 15px 5px; text-align: center; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
   .schedule-card.off { background: #f1f1f1; border-color: #ddd; opacity: 0.8; }
   .s-day { font-weight: 800; font-size: 1.1em; color: var(--primary); }
   .schedule-card.off .s-day { color: #888; }
   .s-time { font-size: 0.85em; font-weight: bold; color: #555; background: white; padding: 4px; border-radius: 6px; border: 1px solid #eee; }
   .s-content { font-size: 0.85em; color: #444; word-break: keep-all; line-height: 1.3; }
+  .section-title { font-size: 1.2em; font-weight: bold; border-bottom: 2px solid var(--primary); padding-bottom: 8px; margin-bottom: 15px; color: #333; display: flex; align-items: center; gap: 8px; }
 </style>
 </head>
 <body>
@@ -221,22 +155,38 @@
     <p id="pageDescDisplay">곡명이나 가수를 검색하거나,<br>원하는 장르에서 신청곡을 골라보세요.</p>
   </header>
 
+  <!-- 탭 메뉴 버튼 -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="songbook" onclick="switchTab('songbook')">🎵 노래책</button>
+    <button class="tab-btn" data-tab="info" onclick="switchTab('info')">📅 방송 정보</button>
+  </div>
+
   <div id="adminBox">
     <h4>🛠️ 관리자 설정 (나에게만 보임)</h4>
     
-    <!-- ★ 주간 방송 시간표 관리 구역 추가 ★ -->
+    <!-- ★ 방송 정보(링크 및 시간표) 관리 구역 ★ -->
     <div class="admin-section">
-      <h5>📅 주간 방송 시간표 관리</h5>
-      <p style="font-size: 0.85em; color: #666; margin-top: 0;">요일별 방송 시간과 내용을 적어주세요. 휴방인 날은 체크!</p>
-      <div id="adminScheduleList" style="display: flex; flex-direction: column; gap: 8px;">
-        <!-- 자바스크립트로 요일별 입력칸 자동 생성 -->
+      <h5>📅 & 🔗 방송 정보 통합 관리 (2페이지)</h5>
+      
+      <div class="lyrics-header" style="margin-bottom: 6px;">
+        <span style="color: var(--primary);">🔗 클릭 가능한 링크 등록</span>
+        <button type="button" class="btn-small" onclick="addAdminLinkRow()">➕ 링크 추가</button>
       </div>
-      <button class="action-btn" style="margin-top: 10px;" onclick="saveScheduleSettings()">시간표 저장하기</button>
+      <div id="adminLinksList" class="memo-list" style="margin-bottom: 20px;"></div>
+
+      <div class="lyrics-header" style="margin-bottom: 6px;">
+        <span style="color: var(--primary);">📅 주간 방송 시간표</span>
+      </div>
+      <div id="adminScheduleList" style="display: flex; flex-direction: column; gap: 8px;">
+        <!-- JS로 자동 생성 -->
+      </div>
+      <button class="action-btn" style="margin-top: 15px;" onclick="saveInfoSettings()">방송 정보 저장하기</button>
     </div>
 
+    <!-- 기존 관리 기능들 -->
     <div class="admin-section">
-      <h5>📁 엑셀(CSV) 파일로 한 번에 등록</h5>
-      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요. (앨범 자켓 자동 연동!)</p>
+      <h5>📁 엑셀(CSV) 파일로 노래 한 번에 등록</h5>
+      <p style="font-size: 0.85em; color: #666; margin-top: 0;">※ 첫 줄에 <b>곡명, 가수, 장르, 난이도, 메모, 가사</b> 라고 적힌 CSV 파일을 올려주세요.</p>
       <div class="form-group">
         <input type="file" id="csvFileInput" accept=".csv">
         <button class="action-btn import-btn" onclick="importCSV()">파일 불러오기</button>
@@ -310,38 +260,38 @@
     </div>
   </div>
 
-  <div class="controls">
-    <input type="text" id="searchInput" class="search" placeholder="⌕ 곡명 또는 가수 검색...">
-    <div class="genres" id="genreContainer">
-      <button class="badge active" data-genre="all">전체</button>
+  <!-- ★ 1페이지: 노래책 탭 내용 ★ -->
+  <div id="tab_songbook" class="tab-content active">
+    <div class="controls">
+      <input type="text" id="searchInput" class="search" placeholder="⌕ 곡명 또는 가수 검색...">
+      <div class="genres" id="genreContainer">
+        <button class="badge active" data-genre="all">전체</button>
+      </div>
+    </div>
+    <div>
+      <div class="song-header">
+        <h3>노래 목록</h3>
+        <span>총 <b id="songCount">0</b>곡</span>
+      </div>
+      <ul class="song-list" id="songList"></ul>
     </div>
   </div>
 
-  <div>
-    <div class="song-header">
-      <h3>노래 목록</h3>
-      <span>총 <b id="songCount">0</b>곡</span>
+  <!-- ★ 2페이지: 방송 정보(링크 & 시간표) 탭 내용 ★ -->
+  <div id="tab_info" class="tab-content">
+    <div class="section-title">🔗 바로가기 링크</div>
+    <div id="viewerLinksContainer" class="links-container">
+      <!-- JS 자동 생성 -->
     </div>
-    <ul class="song-list" id="songList"></ul>
-  </div>
-</div>
 
-<!-- ★ 하단 고정 바 (시간표 보기 버튼) ★ -->
-<div class="bottom-bar" onclick="document.getElementById('scheduleModal').style.display='flex'">
-  📅 주간 방송 시간표 보기 ▴
-</div>
-
-<!-- ★ 시간표 팝업 모달 ★ -->
-<div class="modal-overlay" id="scheduleModal" onclick="closeModal('scheduleModal', event)">
-  <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 650px; width: 95%;">
-    <h3 class="modal-title" style="text-align: center;">📅 주간 방송 시간표</h3>
+    <div class="section-title">📅 주간 방송 시간표</div>
     <div class="schedule-grid" id="scheduleGridViewer">
-      <!-- 자바스크립트로 저장된 시간표 불러옴 -->
+      <!-- JS 자동 생성 -->
     </div>
-    <button class="action-btn" style="padding: 10px; margin-top: 10px;" onclick="closeModal('scheduleModal')">닫기</button>
   </div>
 </div>
 
+<!-- 기존 가사/메모 모달 -->
 <div class="modal-overlay" id="lyricsModal" onclick="closeModal('lyricsModal', event)">
   <div class="modal-content" onclick="event.stopPropagation()">
     <h3 class="modal-title" id="lyricsModalTitle">곡 제목</h3>
@@ -351,7 +301,7 @@
   </div>
 </div>
 
-<!-- 수정 및 앨범 자켓 선택 모달 -->
+<!-- 기존 노래 수정/앨범 선택 모달 -->
 <div class="modal-overlay" id="editModal" onclick="closeModal('editModal', event)">
   <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 450px;">
     <h3 class="modal-title">곡 정보 및 앨범 자켓 수정</h3>
@@ -402,7 +352,7 @@
 </div>
 
 <script>
-  // 기본 설정에 빈 시간표 데이터 템플릿 포함
+  // 기본 설정에 시간표와 외부 링크 템플릿 포함
   const defaultPageInfo = {
     icons: "♥ ♪ ♥",
     title: "나만의 노래책",
@@ -410,12 +360,16 @@
     primaryColor: "#ff85a2",
     bgColor: "#fff5f7",
     password: "12345",
+    links: [
+      { name: '📺 유튜브 바로가기', url: 'https://youtube.com' },
+      { name: '🔴 치지직 / 생방송 바로가기', url: 'https://chzzk.naver.com' }
+    ],
     schedule: [
       { day: '월', time: '20:00', content: '정규 방송', isOff: false },
       { day: '화', time: '20:00', content: '정규 방송', isOff: false },
       { day: '수', time: '', content: '휴방', isOff: true },
       { day: '목', time: '20:00', content: '정규 방송', isOff: false },
-      { 시: '금', time: '20:00', content: '시청자 참여', isOff: false },
+      { day: '금', time: '20:00', content: '시청자 참여', isOff: false },
       { day: '토', time: '19:00', content: '종합 게임', isOff: false },
       { day: '일', time: '', content: '휴방', isOff: true }
     ]
@@ -423,10 +377,8 @@
   
   let pageInfo = JSON.parse(localStorage.getItem("myPageInfo")) || defaultPageInfo;
   
-  // 기존 사용자 데이터에 시간표가 없으면 추가해줌
-  if(!pageInfo.schedule || pageInfo.schedule.length === 0) {
-    pageInfo.schedule = defaultPageInfo.schedule;
-  }
+  if(!pageInfo.schedule || pageInfo.schedule.length === 0) pageInfo.schedule = defaultPageInfo.schedule;
+  if(!pageInfo.links) pageInfo.links = defaultPageInfo.links;
 
   const urlParams = new URLSearchParams(window.location.search);
   const isAdmin = urlParams.get('admin') === 'true';
@@ -441,61 +393,119 @@
     }
   }
 
-  // ★ 관리자용 시간표 입력칸 생성 함수 ★
-  function renderAdminSchedule() {
-    const container = document.getElementById('adminScheduleList');
-    if (!container) return;
-    let html = '';
-    const days = ['월', '화', '수', '목', '금', '토', '일'];
+  // ★ 탭 전환 기능 ★
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     
-    days.forEach((dayLabel, index) => {
-      // 저장된 데이터가 혹시 누락되어 있으면 기본 템플릿 제공
-      let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
-      html += `
-        <div class="form-row" style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
-          <span style="font-weight: 800; width: 25px; text-align: center; color: var(--primary);">${dayLabel}</span>
-          <input type="text" id="schTime_${index}" placeholder="예: 20:00" value="${data.time}" style="flex: 0.5; padding: 6px; font-size: 0.85em;">
-          <input type="text" id="schContent_${index}" placeholder="방송 내용" value="${data.content}" style="flex: 1; padding: 6px; font-size: 0.85em;">
-          <label style="font-size: 0.85em; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
-            <input type="checkbox" id="schOff_${index}" ${data.isOff ? 'checked' : ''}> 휴방
-          </label>
-        </div>
-      `;
-    });
-    container.innerHTML = html;
+    document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+    document.getElementById(`tab_${tabId}`).classList.add('active');
   }
 
-  // ★ 시청자용 시간표 UI 렌더링 함수 ★
-  function renderScheduleViewer() {
-    const container = document.getElementById('scheduleGridViewer');
-    if (!container) return;
-    let html = '';
-    const days = ['월', '화', '수', '목', '금', '토', '일'];
-    
-    days.forEach((dayLabel, index) => {
-      let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
-      if (data.isOff) {
+  // ★ 관리자용: 링크 입력칸 추가 ★
+  function addAdminLinkRow(name = "", url = "") {
+    const container = document.getElementById('adminLinksList');
+    const row = document.createElement("div");
+    row.className = "form-row memo-row link-row";
+    row.innerHTML = `
+      <input type="text" class="link-name" placeholder="표시할 이름 (예: 유튜브)" value="${name}" style="flex: 0.4;">
+      <input type="text" class="link-url" placeholder="URL 주소 (https://...)" value="${url}">
+      <button type="button" class="btn-small" onclick="this.parentElement.remove()">❌</button>
+    `;
+    container.appendChild(row);
+  }
+
+  // ★ 관리자용: 시간표 & 링크 렌더링 ★
+  function renderAdminInfoSettings() {
+    // 1. 링크 렌더링
+    const linksContainer = document.getElementById('adminLinksList');
+    if (linksContainer) {
+      linksContainer.innerHTML = '';
+      pageInfo.links.forEach(link => addAdminLinkRow(link.name, link.url));
+      if (pageInfo.links.length === 0) addAdminLinkRow();
+    }
+
+    // 2. 시간표 렌더링
+    const schContainer = document.getElementById('adminScheduleList');
+    if (schContainer) {
+      let html = '';
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      days.forEach((dayLabel, index) => {
+        let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
         html += `
-          <div class="schedule-card off">
-            <div class="s-day">${dayLabel}</div>
-            <div class="s-content" style="margin-top:auto; font-weight:bold; color:#999; font-size:1em;">💤<br>휴방</div>
+          <div class="form-row" style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
+            <span style="font-weight: 800; width: 25px; text-align: center; color: var(--primary);">${dayLabel}</span>
+            <input type="text" id="schTime_${index}" placeholder="예: 20:00" value="${data.time}" style="flex: 0.5; padding: 6px; font-size: 0.85em;">
+            <input type="text" id="schContent_${index}" placeholder="방송 내용" value="${data.content}" style="flex: 1; padding: 6px; font-size: 0.85em;">
+            <label style="font-size: 0.85em; display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap;">
+              <input type="checkbox" id="schOff_${index}" ${data.isOff ? 'checked' : ''}> 휴방
+            </label>
           </div>
         `;
+      });
+      schContainer.innerHTML = html;
+    }
+  }
+
+  // ★ 시청자용: 방송 정보 탭 렌더링 ★
+  function renderViewerInfo() {
+    // 1. 링크 버튼 렌더링
+    const linksContainer = document.getElementById('viewerLinksContainer');
+    if (linksContainer) {
+      let linksHtml = '';
+      if(pageInfo.links && pageInfo.links.length > 0) {
+        pageInfo.links.forEach(link => {
+          if(link.name && link.url) {
+            let safeUrl = link.url.startsWith('http') ? link.url : 'https://' + link.url;
+            linksHtml += `<a href="${safeUrl}" target="_blank" class="link-card">${link.name}</a>`;
+          }
+        });
       } else {
-        html += `
-          <div class="schedule-card">
-            <div class="s-day">${dayLabel}</div>
-            <div class="s-time">⏰ ${data.time || '미정'}</div>
-            <div class="s-content">${data.content || '방송'}</div>
-          </div>
-        `;
+        linksHtml = '<div style="text-align:center; color:#888; padding:10px;">등록된 링크가 없습니다.</div>';
       }
-    });
-    container.innerHTML = html;
+      linksContainer.innerHTML = linksHtml;
+    }
+
+    // 2. 시간표 렌더링
+    const schContainer = document.getElementById('scheduleGridViewer');
+    if (schContainer) {
+      let schHtml = '';
+      const days = ['월', '화', '수', '목', '금', '토', '일'];
+      days.forEach((dayLabel, index) => {
+        let data = pageInfo.schedule[index] || { day: dayLabel, time: '', content: '', isOff: false };
+        if (data.isOff) {
+          schHtml += `
+            <div class="schedule-card off">
+              <div class="s-day">${dayLabel}</div>
+              <div class="s-content" style="margin-top:auto; font-weight:bold; color:#999; font-size:1em;">💤<br>휴방</div>
+            </div>
+          `;
+        } else {
+          schHtml += `
+            <div class="schedule-card">
+              <div class="s-day">${dayLabel}</div>
+              <div class="s-time">⏰ ${data.time || '미정'}</div>
+              <div class="s-content">${data.content || '방송'}</div>
+            </div>
+          `;
+        }
+      });
+      schContainer.innerHTML = schHtml;
+    }
   }
 
-  // ★ 시간표 저장 기능 ★
-  function saveScheduleSettings() {
+  // ★ 관리자 통합 저장 (시간표 & 링크) ★
+  function saveInfoSettings() {
+    // 링크 수집
+    const newLinks = [];
+    document.querySelectorAll('.link-row').forEach(row => {
+      const name = row.querySelector('.link-name').value.trim();
+      const url = row.querySelector('.link-url').value.trim();
+      if (name || url) { newLinks.push({ name, url }); }
+    });
+    pageInfo.links = newLinks;
+
+    // 시간표 수집
     const newSchedule = [];
     const days = ['월', '화', '수', '목', '금', '토', '일'];
     for(let i=0; i<7; i++) {
@@ -507,11 +517,13 @@
       });
     }
     pageInfo.schedule = newSchedule;
+
     localStorage.setItem("myPageInfo", JSON.stringify(pageInfo));
-    renderScheduleViewer();
-    alert("주간 방송 시간표가 성공적으로 저장되었습니다!");
+    renderViewerInfo();
+    alert("방송 정보(링크 및 시간표)가 성공적으로 저장되었습니다!");
   }
 
+  // 페이지 기본 정보 렌더링
   function renderPageInfo() {
     document.getElementById('pageIconsDisplay').textContent = pageInfo.icons;
     document.getElementById('pageTitleDisplay').textContent = pageInfo.title;
@@ -527,10 +539,9 @@
       document.getElementById('settingPrimaryColor').value = pageInfo.primaryColor;
       document.getElementById('settingBgColor').value = pageInfo.bgColor;
       document.getElementById('settingPassword').value = pageInfo.password;
-      renderAdminSchedule(); // 관리자 설정창 렌더링 시 시간표 입력칸도 렌더링
+      renderAdminInfoSettings(); 
     }
-    
-    renderScheduleViewer(); // 시청자 모달용 시간표 렌더링
+    renderViewerInfo();
   }
 
   function savePageSettings() {
@@ -548,6 +559,7 @@
     alert("디자인과 설정이 성공적으로 변경되었습니다!");
   }
 
+  // --- 기존 노래책 관련 로직들 ---
   function searchLyricsOnNaver(titleId, artistId) {
     const title = document.getElementById(titleId).value.trim();
     const artist = document.getElementById(artistId).value.trim();
@@ -583,9 +595,7 @@
   let songs = JSON.parse(localStorage.getItem("mySongs")) || defaultSongs;
   let currentGenre = "all";
 
-  function saveSongsToStorage() {
-    localStorage.setItem("mySongs", JSON.stringify(songs));
-  }
+  function saveSongsToStorage() { localStorage.setItem("mySongs", JSON.stringify(songs)); }
 
   async function fetchAlbumArtOptions(title, artist) {
     try {
@@ -595,16 +605,11 @@
       let urls = [];
       if (data.results && data.results.length > 0) {
         data.results.forEach(item => {
-          if (item.artworkUrl100) {
-            urls.push(item.artworkUrl100.replace('100x100bb', '300x300bb'));
-          }
+          if (item.artworkUrl100) { urls.push(item.artworkUrl100.replace('100x100bb', '300x300bb')); }
         });
       }
       return urls;
-    } catch (e) {
-      console.error("앨범 자켓 검색 실패:", e);
-      return [];
-    }
+    } catch (e) { console.error("앨범 자켓 검색 실패:", e); return []; }
   }
 
   async function searchNewAlbumArtOptions() {
@@ -612,10 +617,7 @@
     const artist = document.getElementById("newArtist").value.trim();
     const container = document.getElementById("newArtOptionsContainer");
 
-    if (!title || !artist) {
-      alert("곡명과 가수를 먼저 입력해주세요!");
-      return;
-    }
+    if (!title || !artist) { alert("곡명과 가수를 먼저 입력해주세요!"); return; }
 
     container.innerHTML = `<div style="grid-column: span 3; text-align: center; color: #888; font-size: 0.85em; padding: 10px;">검색 중... ⏳</div>`;
     const urls = await fetchAlbumArtOptions(title, artist);
@@ -629,14 +631,8 @@
     let html = "";
     urls.forEach((url, index) => {
       let isSelected = (currentSelectedUrl === url || (index === 0 && !currentSelectedUrl)) ? 'selected' : '';
-      if (index === 0 && !currentSelectedUrl) {
-        document.getElementById("newAlbumArtUrl").value = url;
-      }
-      html += `
-        <div class="art-option ${isSelected}" onclick="selectNewArtOption(this, '${url}')">
-          <img src="${url}" alt="자켓후보">
-        </div>
-      `;
+      if (index === 0 && !currentSelectedUrl) { document.getElementById("newAlbumArtUrl").value = url; }
+      html += `<div class="art-option ${isSelected}" onclick="selectNewArtOption(this, '${url}')"><img src="${url}" alt="자켓후보"></div>`;
     });
     container.innerHTML = html;
   }
@@ -652,10 +648,7 @@
     const artist = document.getElementById("editArtist").value.trim();
     const container = document.getElementById("editArtOptionsContainer");
 
-    if (!title || !artist) {
-      alert("곡명과 가수를 먼저 입력해주세요!");
-      return;
-    }
+    if (!title || !artist) { alert("곡명과 가수를 먼저 입력해주세요!"); return; }
 
     container.innerHTML = `<div style="grid-column: span 3; text-align: center; color: #888; font-size: 0.85em; padding: 15px;">검색 중... ⏳</div>`;
     const urls = await fetchAlbumArtOptions(title, artist);
@@ -669,11 +662,7 @@
     let html = "";
     urls.forEach((url) => {
       let isSelected = currentSelectedUrl === url ? 'selected' : '';
-      html += `
-        <div class="art-option ${isSelected}" onclick="selectEditArtOption(this, '${url}')">
-          <img src="${url}" alt="자켓후보">
-        </div>
-      `;
+      html += `<div class="art-option ${isSelected}" onclick="selectEditArtOption(this, '${url}')"><img src="${url}" alt="자켓후보"></div>`;
     });
     container.innerHTML = html;
   }
@@ -690,8 +679,7 @@
     if (!file) { alert("파일을 먼저 선택해주세요!"); return; }
 
     Papa.parse(file, {
-      header: true, 
-      skipEmptyLines: true,
+      header: true, skipEmptyLines: true,
       complete: async function(results) {
         let addedCount = 0;
         for (let row of results.data) {
@@ -700,8 +688,7 @@
           if (title && artist) {
             const genre = row['장르'] || "기타";
             let difficulty = parseInt(row['난이도']) || 3;
-            if (difficulty < 1) difficulty = 1;
-            if (difficulty > 5) difficulty = 5;
+            if (difficulty < 1) difficulty = 1; if (difficulty > 5) difficulty = 5;
 
             const lyrics = row['가사'] || "";
             const memoText = row['메모'] || "";
@@ -711,14 +698,8 @@
             const albumArtUrl = urls.length > 0 ? urls[0] : "";
 
             songs.unshift({
-              id: Date.now() + Math.random(),
-              title: title.trim(),
-              artist: artist.trim(),
-              genre: genre.trim(),
-              difficulty: difficulty,
-              lyrics: lyrics.trim(),
-              memos: memos,
-              albumArt: albumArtUrl
+              id: Date.now() + Math.random(), title: title.trim(), artist: artist.trim(),
+              genre: genre.trim(), difficulty: difficulty, lyrics: lyrics.trim(), memos: memos, albumArt: albumArtUrl
             });
             addedCount++;
           }
@@ -774,10 +755,7 @@
       const hasOldMemo = song.memo && song.memo.trim() !== "";
       const hasNewMemos = song.memos && song.memos.length > 0;
 
-      if (hasLyrics || hasOldMemo || hasNewMemos) {
-        rightButtons += `<button class="btn-small btn-lyrics" onclick="openLyrics(${song.id})">가사/메모</button>`;
-      }
-      
+      if (hasLyrics || hasOldMemo || hasNewMemos) { rightButtons += `<button class="btn-small btn-lyrics" onclick="openLyrics(${song.id})">가사/메모</button>`; }
       if (isAdmin) {
         rightButtons += `<button class="icon-btn" onclick="openEditModal(${song.id})" title="수정">✏️</button>`;
         rightButtons += `<button class="icon-btn" onclick="deleteSong(${song.id})" title="삭제">❌</button>`;
@@ -785,10 +763,7 @@
 
       let diffVal = song.difficulty || 3;
       let stars = "★".repeat(diffVal) + "☆".repeat(5 - diffVal);
-
-      let artImgHtml = song.albumArt 
-        ? `<img src="${song.albumArt}" class="album-art" alt="앨범아트">` 
-        : `<div class="album-art" style="display:flex; justify-content:center; align-items:center; font-size:1.2em; color:#aaa;">♪</div>`;
+      let artImgHtml = song.albumArt ? `<img src="${song.albumArt}" class="album-art" alt="앨범아트">` : `<div class="album-art" style="display:flex; justify-content:center; align-items:center; font-size:1.2em; color:#aaa;">♪</div>`;
 
       li.innerHTML = `
         <div class="song-info-wrapper">
@@ -796,14 +771,10 @@
           <div>
             <div class="song-title">${song.title}</div>
             <div class="song-artist">${song.artist}</div>
-            <div class="song-meta">
-              <span class="song-difficulty">${stars}</span>
-            </div>
+            <div class="song-meta"><span class="song-difficulty">${stars}</span></div>
           </div>
         </div>
-        <div class="right-side">
-          ${rightButtons}
-        </div>
+        <div class="right-side">${rightButtons}</div>
       `;
       songList.appendChild(li);
     });
@@ -815,7 +786,6 @@
     let genre = document.getElementById("newGenre").value.trim();
     if (genre === "") genre = "기타";
     const difficulty = parseInt(document.getElementById("newDifficulty").value);
-
     const lyrics = document.getElementById("newLyrics").value.trim();
     const memos = getMemosFromContainer("newMemoList");
     let albumArtUrl = document.getElementById("newAlbumArtUrl").value;
@@ -828,25 +798,19 @@
     }
 
     const newSong = { id: Date.now() + Math.random(), title, artist, genre, difficulty, lyrics, memos, albumArt: albumArtUrl };
-    songs.unshift(newSong); 
-    saveSongsToStorage();
-    renderSongs();
+    songs.unshift(newSong); saveSongsToStorage(); renderSongs();
 
-    document.getElementById("newTitle").value = "";
-    document.getElementById("newArtist").value = "";
-    document.getElementById("newGenre").value = "";
-    document.getElementById("newLyrics").value = "";
+    document.getElementById("newTitle").value = ""; document.getElementById("newArtist").value = "";
+    document.getElementById("newGenre").value = ""; document.getElementById("newLyrics").value = "";
     document.getElementById("newAlbumArtUrl").value = "";
     document.getElementById("newArtOptionsContainer").innerHTML = `<div style="grid-column: span 3; text-align: center; color: #888; font-size: 0.85em; padding: 10px;">곡명과 가수 입력 후 버튼을 눌러보세요!</div>`;
-    document.getElementById("newMemoList").innerHTML = "";
-    addMemoRow("newMemoList");
+    document.getElementById("newMemoList").innerHTML = ""; addMemoRow("newMemoList");
   }
 
   function deleteSong(id) {
     if (confirm("이 곡을 삭제하시겠습니까?")) {
       songs = songs.filter(song => song.id !== id);
-      saveSongsToStorage();
-      renderSongs();
+      saveSongsToStorage(); renderSongs();
     }
   }
 
@@ -866,17 +830,11 @@
       
       let existingMemos = song.memos || [];
       if (song.memo && existingMemos.length === 0) { existingMemos = [{ label: "메모", content: song.memo }]; }
-      if (existingMemos.length > 0) {
-        existingMemos.forEach(m => addMemoRow("editMemoList", m.label, m.content));
-      } else { addMemoRow("editMemoList"); }
+      if (existingMemos.length > 0) { existingMemos.forEach(m => addMemoRow("editMemoList", m.label, m.content)); } else { addMemoRow("editMemoList"); }
 
       const artContainer = document.getElementById("editArtOptionsContainer");
       if (song.albumArt) {
-        artContainer.innerHTML = `
-          <div class="art-option selected" onclick="selectEditArtOption(this, '${song.albumArt}')">
-            <img src="${song.albumArt}" alt="현재자켓">
-          </div>
-        `;
+        artContainer.innerHTML = `<div class="art-option selected" onclick="selectEditArtOption(this, '${song.albumArt}')"><img src="${song.albumArt}" alt="현재자켓"></div>`;
       } else {
         artContainer.innerHTML = `<div style="grid-column: span 3; text-align: center; color: #888; font-size: 0.85em; padding: 15px;">상단 버튼을 눌러 자켓 사진을 검색해보세요!</div>`;
       }
@@ -892,7 +850,6 @@
     let genre = document.getElementById("editGenre").value.trim();
     if (genre === "") genre = "기타";
     const difficulty = parseInt(document.getElementById("editDifficulty").value);
-
     const lyrics = document.getElementById("editLyrics").value.trim();
     const memos = getMemosFromContainer("editMemoList");
     const albumArtUrl = document.getElementById("editAlbumArtUrl").value;
@@ -903,9 +860,7 @@
     if (songIndex !== -1) {
       songs[songIndex] = { id, title, artist, genre, difficulty, lyrics, memos, albumArt: albumArtUrl };
       delete songs[songIndex].memo; 
-      saveSongsToStorage();
-      renderSongs();
-      closeModal('editModal');
+      saveSongsToStorage(); renderSongs(); closeModal('editModal');
     }
   }
 
@@ -913,9 +868,7 @@
     const song = songs.find(s => s.id === id);
     if(song) {
       document.getElementById("lyricsModalTitle").textContent = `${song.title} - ${song.artist}`;
-      
-      const memoEl = document.getElementById("lyricsModalMemo");
-      memoEl.innerHTML = ""; 
+      const memoEl = document.getElementById("lyricsModalMemo"); memoEl.innerHTML = ""; 
 
       let displayMemos = song.memos || [];
       if (song.memo && displayMemos.length === 0) { displayMemos = [{ label: "메모", content: song.memo }]; }
@@ -930,9 +883,7 @@
           memoEl.appendChild(memoDiv);
         });
         memoEl.style.display = "block";
-      } else {
-        memoEl.style.display = "none";
-      }
+      } else { memoEl.style.display = "none"; }
 
       document.getElementById("lyricsModalContent").textContent = song.lyrics || "(가사가 없습니다)";
       document.getElementById("lyricsModal").style.display = "flex";
@@ -940,9 +891,7 @@
   }
 
   function closeModal(modalId, event) {
-    if(!event || event.target.id === modalId) {
-      document.getElementById(modalId).style.display = "none";
-    }
+    if(!event || event.target.id === modalId) { document.getElementById(modalId).style.display = "none"; }
   }
 
   document.getElementById("genreContainer").addEventListener("click", (e) => {
